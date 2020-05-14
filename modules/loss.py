@@ -1,11 +1,11 @@
 from __future__ import print_function
 import math
-import torch 
+import torch
 import torch.nn as nn
 import numpy as np
 
-""" 
-	from https://github.com/IBM/pytorch-seq2seq/blob/master/seq2seq/loss/loss.py 
+"""
+	from https://github.com/IBM/pytorch-seq2seq/blob/master/seq2seq/loss/loss.py
 	with minor modification by YTL
 """
 
@@ -77,10 +77,10 @@ class Loss(object):
 		if type(self.acc_loss) is int:
 			raise ValueError("No loss to back propagate.")
 		self.acc_loss.backward(retain_graph=retain_graph)
-		
+
 	def mul(self, coeff):
 		self.acc_loss *= coeff
-		
+
 	def add(self, loss2):
 		self.acc_loss += loss2.acc_loss
 
@@ -88,9 +88,11 @@ class Loss(object):
 class NLLLoss(Loss):
 	""" Batch averaged negative log-likelihood loss.
 	Args:
-		weight (torch.Tensor, optional): refer to http://pytorch.org/docs/master/nn.html#nllloss
+		weight (torch.Tensor, optional): refer to
+			http://pytorch.org/docs/master/nn.html#nllloss
 		mask (int, optional): index of masked token, i.e. weight[mask] = 0.
-		size_average (bool, optional): refer to http://pytorch.org/docs/master/nn.html#nllloss
+		size_average (bool, optional): refer to
+			http://pytorch.org/docs/master/nn.html#nllloss
 	"""
 	"""
 	YTL:
@@ -124,7 +126,7 @@ class NLLLoss(Loss):
 		self.norm_term += 1
 
 	def eval_batch_with_mask(self, outputs, target, mask):
-		
+
 		# masked_loss = torch.mul(self.criterion(outputs, target),mask)
 		masked_loss = self.criterion(outputs, target).masked_select(mask)
 		self.acc_loss += masked_loss.sum()
@@ -160,7 +162,7 @@ class BCELoss(Loss):
 		self.norm_term += 1
 
 	def eval_batch_with_mask(self, outputs, target, mask):
-		
+
 		# masked_loss = torch.mul(self.criterion(outputs, target),mask)
 		masked_loss = self.criterion(outputs, target).masked_select(mask)
 		self.acc_loss += masked_loss.sum()
@@ -196,17 +198,8 @@ class CrossEntropyLoss(Loss):
 		self.norm_term += 1
 
 	def eval_batch_with_mask(self, outputs, target, mask):
-		
+
 		# masked_loss = torch.mul(self.criterion(outputs, target),mask)
 		masked_loss = self.criterion(outputs, target).masked_select(mask)
 		self.acc_loss += masked_loss.sum()
 		self.norm_term += 1
-
-
-
-
-
-
-
-
-

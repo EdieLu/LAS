@@ -9,9 +9,13 @@ import sys
 import numpy as np
 
 sys.path.append('/home/alta/BLTSpeaking/exp-ytl28/local-ytl/acous-las-v3/')
-from utils.misc import set_global_seeds, print_config, save_config, check_srctgt, check_src, check_src_print, check_src_tensor_print, validate_config, get_memory_alloc
+from utils.misc import set_global_seeds, print_config, save_config
+from utils.misc import check_srctgt, check_src, check_src_print, check_src_tensor_print
+from utils.misc import validate_config, get_memory_alloc
 from utils.misc import convert_dd_att_ref, load_acous_from_flis, load_mu_std
-from utils.misc import _convert_to_words_batchfirst, _convert_to_words, _convert_to_tensor, _convert_to_tensor_pad, _del_var
+from utils.misc import _convert_to_words_batchfirst, _convert_to_words
+from utils.misc import _convert_to_tensor, _convert_to_tensor_pad, _del_var
+
 from utils.dataset import Dataset
 from utils.config import PAD, EOS
 from modules.loss import NLLLoss, BCELoss, CrossEntropyLoss
@@ -153,8 +157,10 @@ class Trainer(object):
 				batch_seq_len = int(max(batch_src_lengths))
 				batch_acous_len = int(max(batch_acous_lengths))
 
-				n_minibatch_1 = int(batch_seq_len / self.minibatch_partition) + (batch_seq_len % self.minibatch_partition > 0)
-				n_minibatch_2 = int(batch_acous_len / (self.minibatch_partition * 20)) + (batch_acous_len % (self.minibatch_partition * 20) > 0)
+				n_minibatch_1 = int(batch_seq_len / self.minibatch_partition) \
+					+ (batch_seq_len % self.minibatch_partition > 0)
+				n_minibatch_2 = int(batch_acous_len / (self.minibatch_partition * 20)) \
+					+ (batch_acous_len % (self.minibatch_partition * 20) > 0)
 				n_minibatch = max(n_minibatch_1, n_minibatch_2)
 				minibatch_size = int(batch_size / n_minibatch)
 				n_minibatch += int((batch_size % minibatch_size > 0))
@@ -179,11 +185,13 @@ class Trainer(object):
 					acous_feats = acous_feats[:,:acous_len].to(device=device)
 
 					non_padding_mask_src = src_ids.data.ne(PAD)
-					decoder_outputs, decoder_hidden, ret_dict = model(acous_feats, src_ids, is_training=False, use_gpu=self.use_gpu)
+					decoder_outputs, decoder_hidden, ret_dict = model(
+						acous_feats, src_ids, is_training=False, use_gpu=self.use_gpu)
 
 					# Evaluation
 					logps = torch.stack(decoder_outputs, dim=1).to(device=device)
-					las_loss.eval_batch_with_mask(logps.reshape(-1, logps.size(-1)), src_ids.reshape(-1), non_padding_mask_src.reshape(-1))
+					las_loss.eval_batch_with_mask(logps.reshape(-1, logps.size(-1)),
+						src_ids.reshape(-1), non_padding_mask_src.reshape(-1))
 					las_loss.norm_term = torch.sum(non_padding_mask_src)
 					las_resloss += las_loss.get_loss()
 					las_resloss_norm += 1
@@ -191,7 +199,8 @@ class Trainer(object):
 					# las accuracy
 					seqlist = ret_dict['sequence']
 					seqres = torch.stack(seqlist, dim=1).to(device=device)
-					correct = seqres.view(-1).eq(src_ids.reshape(-1)).masked_select(non_padding_mask_src.reshape(-1)).sum().item()
+					correct = seqres.view(-1).eq(src_ids.reshape(-1))
+						.masked_select(non_padding_mask_src.reshape(-1)).sum().item()
 					las_match += correct
 					las_total += non_padding_mask_src.sum().item()
 
@@ -217,7 +226,8 @@ class Trainer(object):
 		return accs, losses
 
 
-	def _train_batch(self, model, batch_items, dataset, step, total_steps, src_labs=None):
+	def _train_batch(self,
+		odel, batch_items, dataset, step, total_steps, src_labs=None):
 
 		# -- DEBUG --
 		# import pdb; pdb.set_trace()
@@ -243,8 +253,10 @@ class Trainer(object):
 		batch_seq_len = int(max(batch_src_lengths))
 		batch_acous_len = int(max(batch_acous_lengths))
 
-		n_minibatch_1 = int(batch_seq_len / self.minibatch_partition) + (batch_seq_len % self.minibatch_partition > 0)
-		n_minibatch_2 = int(batch_acous_len / (self.minibatch_partition * 20)) + (batch_acous_len % (self.minibatch_partition * 20) > 0)
+		n_minibatch_1 = int(batch_seq_len / self.minibatch_partition) \
+			+ (batch_seq_len % self.minibatch_partition > 0)
+		n_minibatch_2 = int(batch_acous_len / (self.minibatch_partition * 20)) \
+			+ (batch_acous_len % (self.minibatch_partition * 20) > 0)
 		n_minibatch = max(n_minibatch_1, n_minibatch_2)
 		minibatch_size = int(batch_size / n_minibatch)
 		n_minibatch += int((batch_size % minibatch_size > 0))
@@ -278,10 +290,14 @@ class Trainer(object):
 			non_padding_mask_src = src_ids.data.ne(PAD)
 
 			# Forward propagation
-			decoder_outputs, decoder_hidden, ret_dict = model(acous_feats, src_ids, is_training=True, teacher_forcing_ratio=teacher_forcing_ratio, use_gpu=self.use_gpu)
+			decoder_outputs, decoder_hidden, ret_dict = model(acous_feats,
+				src_ids, is_training=True,
+				teacher_forcing_ratio=teacher_forcing_ratio,
+				use_gpu=self.use_gpu)
 
 			logps = torch.stack(decoder_outputs, dim=1).to(device=device)
-			las_loss.eval_batch_with_mask(logps.reshape(-1, logps.size(-1)), src_ids.reshape(-1), non_padding_mask_src.reshape(-1))
+			las_loss.eval_batch_with_mask(logps.reshape(-1, logps.size(-1)),
+				src_ids.reshape(-1), non_padding_mask_src.reshape(-1))
 			las_loss.norm_term = 1.0 * torch.sum(non_padding_mask_src)
 
 			# import pdb; pdb.set_trace()
@@ -299,7 +315,8 @@ class Trainer(object):
 		return losses
 
 
-	def _train_epoches(self, train_set, model, n_epochs, start_epoch, start_step, dev_set=None):
+	def _train_epoches(self,
+		train_set, model, n_epochs, start_epoch, start_step, dev_set=None):
 
 		log = self.logger
 
@@ -332,7 +349,7 @@ class Trainer(object):
 			log.info("steps_per_epoch {}".format(steps_per_epoch))
 			log.info("total_steps {}".format(total_steps))
 
-			log.debug(" ----------------- Epoch: %d, Step: %d -----------------" % (epoch, step))
+			log.debug(" --------- Epoch: %d, Step: %d ---------" % (epoch, step))
 			mem_kb, mem_mb, mem_gb = get_memory_alloc()
 			mem_mb = round(mem_mb, 2)
 			print('Memory used: {0:.2f} MB'.format(mem_mb))
@@ -366,9 +383,11 @@ class Trainer(object):
 				if step % self.print_every == 0 and step_elapsed > self.print_every:
 					las_print_loss_avg = las_print_loss_total / self.print_every
 					las_print_loss_total = 0
-					log_msg = 'Progress: %d%%, Train las: %.4f' % (step / total_steps * 100, las_print_loss_avg)
+					log_msg = 'Progress: %d%%, Train las: %.4f'
+						% (step / total_steps * 100, las_print_loss_avg)
 					log.info(log_msg)
-					self.writer.add_scalar('train_las_loss', las_print_loss_avg, global_step=step)
+					self.writer.add_scalar('train_las_loss',
+						las_print_loss_avg, global_step=step)
 
 				# Checkpoint
 				if step % self.checkpoint_every == 0 or step == total_steps:
@@ -378,7 +397,8 @@ class Trainer(object):
 						dev_accs, dev_losses =  self._evaluate_batches(model, dev_set)
 						las_loss = dev_losses['las_loss']
 						las_acc = dev_accs['las_acc']
-						log_msg = 'Progress: %d%%, Dev las loss: %.4f, accuracy: %.4f' % (step / total_steps * 100, las_loss, las_acc)
+						log_msg = 'Progress: %d%%, Dev las loss: %.4f, accuracy: %.4f'
+							% (step / total_steps * 100, las_loss, las_acc)
 						log.info(log_msg)
 						self.writer.add_scalar('dev_las_loss', las_loss, global_step=step)
 						self.writer.add_scalar('dev_las_acc', las_acc, global_step=step)
@@ -405,10 +425,12 @@ class Trainer(object):
 						# roll back
 						if count_no_improve > MAX_COUNT_NO_IMPROVE:
 							# resuming
-							latest_checkpoint_path = Checkpoint.get_latest_checkpoint(self.expt_dir)
+							latest_checkpoint_path = Checkpoint
+								.get_latest_checkpoint(self.expt_dir)
 							if type(latest_checkpoint_path) != type(None):
 								resume_checkpoint = Checkpoint.load(latest_checkpoint_path)
-								print('epoch:{} step: {} - rolling back {} ...'.format(epoch, step, latest_checkpoint_path))
+								print('epoch:{} step: {} - rolling back {} ...'
+									.format(epoch, step, latest_checkpoint_path))
 								model = resume_checkpoint.model
 								self.optimizer = resume_checkpoint.optimizer
 								# A walk around to set optimizing parameters properly
@@ -416,7 +438,8 @@ class Trainer(object):
 								defaults = resume_optim.param_groups[0]
 								defaults.pop('params', None)
 								defaults.pop('initial_lr', None)
-								self.optimizer.optimizer = resume_optim.__class__(model.parameters(), **defaults)
+								self.optimizer.optimizer = resume_optim
+									.__class__(model.parameters(), **defaults)
 								# start_epoch = resume_checkpoint.epoch
 								# step = resume_checkpoint.step
 
@@ -428,10 +451,12 @@ class Trainer(object):
 						if count_num_rollback > MAX_COUNT_NUM_ROLLBACK:
 
 							# roll back
-							latest_checkpoint_path = Checkpoint.get_latest_checkpoint(self.expt_dir)
+							latest_checkpoint_path = \
+								Checkpoint.get_latest_checkpoint(self.expt_dir)
 							if type(latest_checkpoint_path) != type(None):
 								resume_checkpoint = Checkpoint.load(latest_checkpoint_path)
-								print('epoch:{} step: {} - rolling back {} ...'.format(epoch, step, latest_checkpoint_path))
+								print('epoch:{} step: {} - rolling back {} ...'
+									.format(epoch, step, latest_checkpoint_path))
 								model = resume_checkpoint.model
 								self.optimizer = resume_checkpoint.optimizer
 								# A walk around to set optimizing parameters properly
@@ -439,7 +464,8 @@ class Trainer(object):
 								defaults = resume_optim.param_groups[0]
 								defaults.pop('params', None)
 								defaults.pop('initial_lr', None)
-								self.optimizer.optimizer = resume_optim.__class__(model.parameters(), **defaults)
+								self.optimizer.optimizer = resume_optim
+									.__class__(model.parameters(), **defaults)
 								start_epoch = resume_checkpoint.epoch
 								step = resume_checkpoint.step
 
@@ -478,7 +504,8 @@ class Trainer(object):
 								   input_vocab=train_set.vocab_src,
 								   output_vocab=train_set.vocab_src)
 					ckpt.rm_old(self.expt_dir, keep_num=KEEP_NUM)
-					print('n_no_improve {}, num_rollback {}'.format(count_no_improve, count_num_rollback))
+					print('n_no_improve {}, num_rollback {}'
+						.format(count_no_improve, count_num_rollback))
 				sys.stdout.flush()
 
 			else:
@@ -546,7 +573,8 @@ class Trainer(object):
 							lr=self.learning_rate), max_grad_norm=self.max_grad_norm) # 5 -> 1
 			self.optimizer = optimizer
 
-		self.logger.info("Optimizer: %s, Scheduler: %s" % (self.optimizer.optimizer, self.optimizer.scheduler))
+		self.logger.info("Optimizer: %s, Scheduler: %s"
+			% (self.optimizer.optimizer, self.optimizer.scheduler))
 
 		self._train_epoches(train_set, model, num_epochs, start_epoch, step, dev_set=dev_set)
 
@@ -594,20 +622,25 @@ def main():
 	train_path_tgt = config['train_path_tgt']
 	train_tsv_path = config['train_tsv_path']
 	train_acous_path = config['train_acous_path']
-	train_set = Dataset(train_path_src, train_path_tgt, path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
-						tsv_path=train_tsv_path, acous_path=train_acous_path, seqrev=config['seqrev'], acous_norm=config['acous_norm'],
-						max_seq_len=config['max_seq_len'], batch_size=config['batch_size'],
-						use_gpu=config['use_gpu'])
+	train_set = Dataset(train_path_src, train_path_tgt,
+		path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
+		tsv_path=train_tsv_path, acous_path=train_acous_path, s
+		eqrev=config['seqrev'], acous_norm=config['acous_norm'],
+		max_seq_len=config['max_seq_len'], batch_size=config['batch_size'],
+		use_gpu=config['use_gpu'])
+
 	# load dev set
 	if config['dev_path_src']:
 		dev_path_src = config['dev_path_src']
 		dev_path_tgt = config['dev_path_tgt']
 		dev_tsv_path = config['dev_tsv_path']
 		dev_acous_path = config['dev_acous_path']
-		dev_set = Dataset(dev_path_src, dev_path_tgt, path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
-						tsv_path=dev_tsv_path, acous_path=dev_acous_path, seqrev=config['seqrev'], acous_norm=config['acous_norm'],
-						max_seq_len=config['max_seq_len'], batch_size=config['batch_size'],
-						use_gpu=config['use_gpu'])
+		dev_set = Dataset(dev_path_src, dev_path_tgt,
+			path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
+			tsv_path=dev_tsv_path, acous_path=dev_acous_path,
+			seqrev=config['seqrev'], acous_norm=config['acous_norm'],
+			max_seq_len=config['max_seq_len'], batch_size=config['batch_size'],
+			use_gpu=config['use_gpu'])
 	else:
 		dev_set = None
 
@@ -653,7 +686,8 @@ def main():
 					max_grad_norm=config['max_grad_norm'])
 
 	# run training
-	las_model = t.train(train_set, las_model, num_epochs=config['num_epochs'], dev_set=dev_set)
+	las_model = t.train(
+		train_set, las_model, num_epochs=config['num_epochs'], dev_set=dev_set)
 
 
 if __name__ == '__main__':

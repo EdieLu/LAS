@@ -9,8 +9,11 @@ import numpy as np
 
 sys.path.append('/home/alta/BLTSpeaking/exp-ytl28/local-ytl/acous-las-v3/')
 from utils.dataset import Dataset
-from utils.misc import set_global_seeds, print_config, save_config, validate_config, get_memory_alloc, load_acous_from_flis
-from utils.misc import _convert_to_words_batchfirst, _convert_to_words, _convert_to_tensor, _convert_to_tensor_pad, plot_alignment, plot_attention
+from utils.misc import set_global_seeds, print_config, save_config, validate_config
+from utils.misc import get_memory_alloc, load_acous_from_flis
+from utils.misc import _convert_to_words_batchfirst, _convert_to_words
+from utils.misc import _convert_to_tensor, _convert_to_tensor_pad
+from utils.misc import plot_alignment, plot_attention
 from utils.config import PAD, EOS
 from modules.loss import NLLLoss
 from modules.optim import Optimizer
@@ -30,7 +33,7 @@ def load_arguments(parser):
 	parser.add_argument('--test_path_src', type=str, required=True, help='test src dir')
 	parser.add_argument('--test_path_tgt', type=str, default=None, help='test tgt dir')
 	parser.add_argument('--path_vocab_src', type=str, required=True, help='vocab src dir')
-	parser.add_argument('--path_vocab_tgt', type=str, default=None, help='vocab tgt dir')	
+	parser.add_argument('--path_vocab_tgt', type=str, default=None, help='vocab tgt dir')
 	parser.add_argument('--use_type', type=str, default='char', help='use char | word level prediction')
 	parser.add_argument('--acous_norm', type=str, default='False', help='input acoustic fbk normalisation')
 
@@ -42,8 +45,8 @@ def load_arguments(parser):
 
 	# others
 	parser.add_argument('--max_seq_len', type=int, default=32, help='maximum sequence length')
-	parser.add_argument('--batch_size', type=int, default=64, help='batch size')	
-	parser.add_argument('--beam_width', type=int, default=0, help='beam width; set to 0 to disable beam search')	
+	parser.add_argument('--batch_size', type=int, default=64, help='batch size')
+	parser.add_argument('--beam_width', type=int, default=0, help='beam width; set to 0 to disable beam search')
 	parser.add_argument('--use_gpu', type=str, default='False', help='whether or not using GPU')
 	parser.add_argument('--eval_mode', type=int, default=2, help='which evaluation mode to use')
 	parser.add_argument('--seqrev', type=str, default=False, help='whether or not to reverse sequence')
@@ -53,7 +56,7 @@ def load_arguments(parser):
 
 def translate(test_set, load_dir, test_path_out, use_gpu, max_seq_len, beam_width, seqrev=False):
 
-	""" 
+	"""
 		no reference tgt given - Run translation.
 		Args:
 			test_set: test dataset
@@ -92,8 +95,13 @@ def translate(test_set, load_dir, test_path_out, use_gpu, max_seq_len, beam_widt
 				acous_feats = batch_items[2][0].to(device=device)
 				acous_lengths = batch_items[3]
 
-				decoder_outputs, decoder_hidden, other = model(acous_feats, src_ids, is_training=False, use_gpu=use_gpu, beam_width=beam_width)
-				# decoder_outputs, decoder_hidden, other = model(acous_feats, src_ids, is_training=False, teacher_forcing_ratio=1.0, use_gpu=use_gpu, beam_width=beam_width)
+				decoder_outputs, decoder_hidden, other = \
+					model(acous_feats, src_ids, is_training=False,
+						use_gpu=use_gpu, beam_width=beam_width)
+				# decoder_outputs, decoder_hidden, other = \
+					# model(acous_feats, src_ids, is_training=False,
+					# 	teacher_forcing_ratio=1.0,
+					# 	use_gpu=use_gpu, beam_width=beam_width)
 
 				# memory usage
 				mem_kb, mem_mb, mem_gb = get_memory_alloc()
@@ -155,7 +163,7 @@ def translate(test_set, load_dir, test_path_out, use_gpu, max_seq_len, beam_widt
 
 def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 
-	""" 
+	"""
 		with reference tgt given - debug beam search.
 		Args:
 			test_set: test dataset
@@ -172,13 +180,13 @@ def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 	resume_checkpoint = Checkpoint.load(latest_checkpoint_path)
 
 	model = resume_checkpoint.model
-	print('Model dir: {}'.format(latest_checkpoint_path))	
+	print('Model dir: {}'.format(latest_checkpoint_path))
 	print('Model laoded')
 
 	# reset batch_size:
 	model.reset_max_seq_len(max_seq_len)
-	model.reset_use_gpu(use_gpu)	
-	model.reset_batch_size(test_set.batch_size)	
+	model.reset_use_gpu(use_gpu)
+	model.reset_batch_size(test_set.batch_size)
 	print('max seq len {}'.format(model.max_seq_len))
 	sys.stdout.flush()
 
@@ -206,14 +214,14 @@ def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 			src_ids = _convert_to_tensor(src_ids, use_gpu)
 			tgt_ids = _convert_to_tensor(tgt_ids, use_gpu)
 
-			decoder_outputs, decoder_hidden, other = model(src_ids, tgt_ids, 
+			decoder_outputs, decoder_hidden, other = model(src_ids, tgt_ids,
 															is_training=False,
 															att_key_feats=src_probs,
 															beam_width=beam_width)
 
 			# Evaluation
 			seqlist = other['sequence'] # traverse over time not batch
-			if beam_width > 1: 
+			if beam_width > 1:
 				# print('dict:sequence')
 				# print(len(seqlist))
 				# print(seqlist[0].size())
@@ -240,7 +248,7 @@ def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 				# print('step', step)
 				# print('target', target)
 				# print('hyp', seqlist[step])
-				# if beam_width > 1: 
+				# if beam_width > 1:
 				# 	print('full_seqlist', full_seqlist[step])
 				# input('...')
 				correct = seqlist[step].view(-1).eq(target).masked_select(non_padding).sum().item()
@@ -248,16 +256,16 @@ def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 				total += non_padding.sum().item()
 
 			# write to file
-			refwords = _convert_to_words_batchfirst(tgt_ids[:,1:], test_set.tgt_id2word)			
+			refwords = _convert_to_words_batchfirst(tgt_ids[:,1:], test_set.tgt_id2word)
 			seqwords = _convert_to_words(seqlist, test_set.tgt_id2word)
 			seqwords_list = []
 			for i in range(beam_width):
 				seqwords_list.append(_convert_to_words(seqlists[i], test_set.tgt_id2word))
 
 			for i in range(len(seqwords)):
-				outline_ref = ' '.join(refwords[i]) 
-				print('REF', outline_ref)				
-				outline_hyp = ' '.join(seqwords[i]) 
+				outline_ref = ' '.join(refwords[i])
+				print('REF', outline_ref)
+				outline_hyp = ' '.join(seqwords[i])
 				# print(outline_hyp)
 				outline_hyps = []
 				for j in range(beam_width):
@@ -288,21 +296,21 @@ def debug_beam_search(test_set, load_dir, use_gpu, max_seq_len, beam_width):
 			accuracy = float('nan')
 		else:
 			accuracy = match / total
-		
+
 	return accuracy
 
 
 def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_width):
 
-	""" 
+	"""
 		generate attention alignment plots
 		Args:
 			test_set: test dataset
 			load_dir: model dir
-			use_gpu: on gpu/cpu			
+			use_gpu: on gpu/cpu
 			max_seq_len
 		Returns:
-			
+
 	"""
 	# import pdb; pdb.set_trace()
 	use_gpu = False
@@ -320,7 +328,7 @@ def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_wid
 	model.reset_max_seq_len(max_seq_len)
 	print('max seq len {}'.format(model.max_seq_len))
 	sys.stdout.flush()
-		
+
 	# load test
 	test_set.construct_batches(is_train=False)
 	evaliter = iter(test_set.iter_loader)
@@ -337,12 +345,16 @@ def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_wid
 			acous_feats = batch_items[2][0].to(device=device)
 			acous_lengths = batch_items[3]
 
-			# decoder_outputs, decoder_hidden, ret_dict = model(acous_feats, src_ids, is_training=False, use_gpu=use_gpu, beam_width=beam_width)
-			decoder_outputs, decoder_hidden, ret_dict = model(acous_feats, src_ids, is_training=False, teacher_forcing_ratio=1.0, use_gpu=use_gpu, beam_width=beam_width)
+			# decoder_outputs, decoder_hidden, ret_dict = model(
+				# acous_feats, src_ids, is_training=False,
+				# use_gpu=use_gpu, beam_width=beam_width)
+			decoder_outputs, decoder_hidden, ret_dict = model(
+				acous_feats, src_ids, is_training=False,
+				teacher_forcing_ratio=1.0, use_gpu=use_gpu, beam_width=beam_width)
 			# attention: [32 x ?] (batch_size x src_len x acous_len(key_len))
 			# default batch_size = 1
 			i = 0
-			attention = torch.cat(ret_dict['attention_score'],dim=1)[i] 
+			attention = torch.cat(ret_dict['attention_score'],dim=1)[i]
 			bsize = test_set.batch_size
 			max_seq = test_set.max_seq_len
 			vocab_size = len(test_set.src_word2id)
@@ -350,13 +362,13 @@ def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_wid
 			# Print sentence by sentence
 			seqlist = ret_dict['sequence']
 			seqwords = _convert_to_words(seqlist, test_set.src_id2word)
-			outline_gen = ' '.join(seqwords[i]) 
+			outline_gen = ' '.join(seqwords[i])
 			srcwords = _convert_to_words_batchfirst(src_ids, test_set.src_id2word)
-			outline_src = ' '.join(srcwords[i]) 
+			outline_src = ' '.join(srcwords[i])
 			print('SRC: {}'.format(outline_src))
 			print('GEN: {}'.format(outline_gen))
 
-			# plotting 
+			# plotting
 			# import pdb; pdb.set_trace()
 			loc_eos_k = srcwords[i].index('</s>') + 1
 			print('eos_k: {}'.format(loc_eos_k))
@@ -367,7 +379,7 @@ def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_wid
 			att_score_trim = attention[:loc_eos_m, :] #each row (each query) sum up to 1
 			# print(att_score_trim)
 			# print('\n')
-			
+
 			choice = input('Plot or not ? - y/n\n')
 			if choice:
 				if choice.lower()[0] == 'y':
@@ -377,8 +389,8 @@ def acous_att_plot(test_set, load_dir, plot_path, use_gpu, max_seq_len, beam_wid
 					src = srcwords[i][:loc_eos_m]
 					gen = seqwords[i][:loc_eos_m]
 
-					# x-axis: acous; y-axis: src
-					plot_attention(att_score_trim.numpy(), plot_dir, gen, words_right=src) # no ref 				
+					# x-axis: acous; y-axis: src, no ref
+					plot_attention(att_score_trim.numpy(), plot_dir, gen, words_right=src)
 					count += 1
 					input('Press enter to continue ...')
 
@@ -391,7 +403,7 @@ def main():
 	parser = load_arguments(parser)
 	args = vars(parser.parse_args())
 	config = validate_config(args)
-	config_save_dir = os.path.join(config['load'], 'eval.cfg') 
+	config_save_dir = os.path.join(config['load'], 'eval.cfg')
 	save_config(config, config_save_dir)
 
 	# check device:
@@ -425,7 +437,7 @@ def main():
 
 	if not os.path.exists(test_path_out):
 		os.makedirs(test_path_out)
-	config_save_dir = os.path.join(test_path_out, 'eval.cfg') 
+	config_save_dir = os.path.join(test_path_out, 'eval.cfg')
 	save_config(config, config_save_dir)
 
 	# set test mode: 3 = DEBUG; 4 = PLOT
@@ -437,15 +449,19 @@ def main():
 		use_gpu = False
 
 	# load test_set
-	test_set = Dataset(test_path_src, test_path_tgt, path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
-						tsv_path=test_tsv_path, acous_path=test_acous_path, seqrev=seqrev, acous_norm=config['acous_norm'],
-						max_seq_len=max_seq_len, batch_size=batch_size, use_gpu=use_gpu)
+	test_set = Dataset(test_path_src, test_path_tgt, path_vocab_src, path_vocab_tgt,
+						use_type=config['use_type'],
+						tsv_path=test_tsv_path, acous_path=test_acous_path,
+						seqrev=seqrev, acous_norm=config['acous_norm'],
+						max_seq_len=max_seq_len, batch_size=batch_size,
+						use_gpu=use_gpu)
 	print('Testset loaded')
 	sys.stdout.flush()
 
 	# run eval
-	if MODE == 2: 
-		translate(test_set, load_dir, test_path_out, use_gpu, max_seq_len, beam_width, seqrev=seqrev)
+	if MODE == 2:
+		translate(test_set, load_dir, test_path_out, use_gpu,
+			max_seq_len, beam_width, seqrev=seqrev)
 
 	elif MODE == 5:
 		# debug for beam search
@@ -453,10 +469,10 @@ def main():
 
 	elif MODE == 6:
 		# plotting las attn
-		acous_att_plot(test_set, load_dir, test_path_out, use_gpu, max_seq_len, beam_width)
+		acous_att_plot(test_set, load_dir, test_path_out, use_gpu,
+			max_seq_len, beam_width)
 
 
 
 if __name__ == '__main__':
 	main()
-

@@ -10,9 +10,11 @@ import dill
 
 class Checkpoint(object):
     """
-    The Checkpoint class manages the saving and loading of a model during training. It allows training to be suspended
-    and resumed at a later time (e.g. when running on a cluster using sequential jobs).
-    To make a checkpoint, initialize a Checkpoint object with the following args; then call that object's save() method
+    The Checkpoint class manages the saving and loading of a model during training.
+    It allows training to be suspended and resumed at a later time
+    (e.g. when running on a cluster using sequential jobs).
+    To make a checkpoint, initialize a Checkpoint object with the following args;
+    then call that object's save() method
     to write parameters to disk.
     Args:
         model (seq2seq): seq2seq model being trained
@@ -36,7 +38,8 @@ class Checkpoint(object):
     INPUT_VOCAB_FILE = 'input_vocab.pt'
     OUTPUT_VOCAB_FILE = 'output_vocab.pt'
 
-    def __init__(self, model, optimizer, epoch, step, input_vocab, output_vocab, path=None):
+    def __init__(self,
+        model, optimizer, epoch, step, input_vocab, output_vocab, path=None):
         self.model = model
         self.optimizer = optimizer
         self.input_vocab = input_vocab
@@ -53,7 +56,8 @@ class Checkpoint(object):
 
     def save(self, experiment_dir):
         """
-        Saves the current model and related training parameters into a subdirectory of the checkpoint directory.
+        Saves the current model and related training parameters
+        into a subdirectory of the checkpoint directory.
         The name of the subdirectory is the current local time in Y_M_D_H_M_S format.
         Args:
             experiment_dir (str): path to the experiment root directory
@@ -62,7 +66,8 @@ class Checkpoint(object):
         """
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
 
-        self._path = os.path.join(experiment_dir, self.CHECKPOINT_DIR_NAME, date_time)
+        self._path = os.path.join(experiment_dir,
+            self.CHECKPOINT_DIR_NAME, date_time)
         path = self._path
 
         if os.path.exists(path):
@@ -84,7 +89,8 @@ class Checkpoint(object):
 
     def save_epoch(self, experiment_dir, epoch):
         """
-        Saves the current model and related training parameters into a subdirectory of the checkpoint directory.
+        Saves the current model and related training parameters
+        into a subdirectory of the checkpoint directory.
         The name of the subdirectory is the current epoch format.
         Args:
             experiment_dir (str): path to the experiment root directory
@@ -92,7 +98,8 @@ class Checkpoint(object):
              str: path to the saved checkpoint subdirectory
         """
 
-        self._path = os.path.join(experiment_dir, self.CHECKPOINT_EPOCH_DIR_NAME, str(epoch))
+        self._path = os.path.join(experiment_dir,
+            self.CHECKPOINT_EPOCH_DIR_NAME, str(epoch))
         path = self._path
 
         if os.path.exists(path):
@@ -131,14 +138,17 @@ class Checkpoint(object):
         Args:
             path (str): path to the checkpoint subdirectory
         Returns:
-            checkpoint (Checkpoint): checkpoint object with fields copied from those stored on disk
+            checkpoint (Checkpoint):
+                checkpoint object with fields copied from those stored on disk
         """
         if torch.cuda.is_available():
             resume_checkpoint = torch.load(os.path.join(path, cls.TRAINER_STATE_NAME))
             model = torch.load(os.path.join(path, cls.MODEL_NAME))
         else:
-            resume_checkpoint = torch.load(os.path.join(path, cls.TRAINER_STATE_NAME), map_location=lambda storage, loc: storage)
-            model = torch.load(os.path.join(path, cls.MODEL_NAME), map_location=lambda storage, loc: storage)
+            resume_checkpoint = torch.load(os.path.join(path, cls.TRAINER_STATE_NAME),
+                map_location=lambda storage, loc: storage)
+            model = torch.load(os.path.join(path, cls.MODEL_NAME),
+                map_location=lambda storage, loc: storage)
 
         # model.flatten_parameters() # make RNN parameters contiguous
         with open(os.path.join(path, cls.INPUT_VOCAB_FILE), 'rb') as fin:
@@ -160,8 +170,10 @@ class Checkpoint(object):
     @classmethod
     def get_latest_checkpoint(cls, experiment_path):
         """
-        Given the path to an experiment directory, returns the path to the last saved checkpoint's subdirectory.
-        Precondition: at least one checkpoint has been made (i.e., latest checkpoint subdirectory exists).
+        Given the path to an experiment directory,
+        returns the path to the last saved checkpoint's subdirectory.
+        Precondition: at least one checkpoint has been made
+        (i.e., latest checkpoint subdirectory exists).
         Args:
             experiment_path (str): path to the experiment directory
         Returns:
@@ -173,15 +185,14 @@ class Checkpoint(object):
 
     @classmethod
     def get_secondlast_checkpoint(cls, experiment_path):
-        
+
         checkpoints_path = os.path.join(experiment_path, cls.CHECKPOINT_DIR_NAME)
         all_times = sorted(os.listdir(checkpoints_path), reverse=True)
         return os.path.join(checkpoints_path, all_times[1])
 
     @classmethod
     def get_thirdlast_checkpoint(cls, experiment_path):
-        
+
         checkpoints_path = os.path.join(experiment_path, cls.CHECKPOINT_DIR_NAME)
         all_times = sorted(os.listdir(checkpoints_path), reverse=True)
         return os.path.join(checkpoints_path, all_times[2])
-

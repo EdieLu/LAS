@@ -94,25 +94,40 @@ class LAS(nn.Module):
 		if self.use_type == 'char' or self.use_type == 'word':
 			if self.load_embedding:
 				embedding_matrix = np.random.rand(self.vocab_size, self.embedding_size)
-				embedding_matrix = load_pretrained_embedding(self.word2id, embedding_matrix, self.load_embedding)
+				embedding_matrix = load_pretrained_embedding(
+					self.word2id,embedding_matrix,self.load_embedding)
 				embedding_matrix = torch.FloatTensor(embedding_matrix)
 				self.embedder = nn.Embedding.from_pretrained(embedding_matrix,
-											freeze=False, sparse=False, padding_idx=PAD)
+					freeze=False, sparse=False,padding_idx=PAD)
 			else:
-				self.embedder = nn.Embedding(self.vocab_size, self.embedding_size, sparse=False, padding_idx=PAD)
+				self.embedder = nn.Embedding(self.vocab_size, self.embedding_size,
+					sparse=False, padding_idx=PAD)
 		elif self.use_type == 'bpe':
 			# BPE
 			embedding_matrix = np.random.rand(self.vocab_size, self.embedding_size)
 			embedding_matrix = load_pretrained_embedding_bpe(embedding_matrix)
 			embedding_matrix = torch.FloatTensor(embedding_matrix).to(device=device)
-			self.embedder = nn.Embedding.from_pretrained(embedding_matrix, freeze=False, sparse=False, padding_idx=PAD)
+			self.embedder = nn.Embedding.from_pretrained(embedding_matrix,
+				freeze=False, sparse=False, padding_idx=PAD)
 
 		# ------ define acous enc -------
 		if self.enc_mode == 'pyramid':
-			self.acous_enc_l1 = torch.nn.LSTM(self.acous_dim, self.acous_hidden_size, num_layers=1, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l2 = torch.nn.LSTM(self.acous_hidden_size * 4, self.acous_hidden_size, num_layers=1, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l3 = torch.nn.LSTM(self.acous_hidden_size * 4, self.acous_hidden_size, num_layers=1, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l4 = torch.nn.LSTM(self.acous_hidden_size * 4, self.acous_hidden_size, num_layers=1, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=True)
+			self.acous_enc_l1 = torch.nn.LSTM(
+				self.acous_dim, self.acous_hidden_size,
+				num_layers=1, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=True)
+			self.acous_enc_l2 = torch.nn.LSTM(
+				self.acous_hidden_size * 4, self.acous_hidden_size,
+				num_layers=1, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=True)
+			self.acous_enc_l3 = torch.nn.LSTM(
+				self.acous_hidden_size * 4, self.acous_hidden_size,
+				num_layers=1, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=True)
+			self.acous_enc_l4 = torch.nn.LSTM(
+				self.acous_hidden_size * 4, self.acous_hidden_size,
+				num_layers=1, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=True)
 			if self.batch_norm:
 				self.bn1 = nn.BatchNorm1d(self.acous_hidden_size * 2)
 				self.bn2 = nn.BatchNorm1d(self.acous_hidden_size * 2)
@@ -127,30 +142,43 @@ class LAS(nn.Module):
 		dropout_acous_att = dropout
 		self.acous_hidden_size_att = 0 # ignored with bilinear
 
-		self.acous_key_size = self.acous_hidden_size * 2 		# acous feats
-		self.acous_value_size = self.acous_hidden_size * 2 		# acous feats
-		self.acous_query_size = self.hidden_size_dec 			# use dec(words) as query
-		self.acous_att = AttentionLayer(self.acous_query_size, self.acous_key_size, value_size=self.acous_value_size,
-									mode=self.acous_att_mode, dropout=dropout_acous_att, query_transform=False, output_transform=False,
-									hidden_size=self.acous_hidden_size_att, use_gpu=use_gpu, hard_att=False)
+		self.acous_key_size = self.acous_hidden_size * 2 	# acous feats
+		self.acous_value_size = self.acous_hidden_size * 2 	# acous feats
+		self.acous_query_size = self.hidden_size_dec 		# use dec(words) as query
+		self.acous_att = AttentionLayer(self.acous_query_size, self.acous_key_size,
+									value_size=self.acous_value_size,
+									mode=self.acous_att_mode,
+									dropout=dropout_acous_att,
+									query_transform=False,
+									output_transform=False,
+									hidden_size=self.acous_hidden_size_att,
+									use_gpu=use_gpu,
+									hard_att=False)
 
 		# ------ define acous out --------
-		self.acous_ffn = nn.Linear(self.acous_hidden_size * 2 + self.hidden_size_dec , self.hidden_size_shared, bias=False)
+		self.acous_ffn = nn.Linear(self.acous_hidden_size * 2 + self.hidden_size_dec,
+									self.hidden_size_shared, bias=False)
 		self.acous_out = nn.Linear(self.hidden_size_shared, self.vocab_size, bias=True)
 
 
 		# ------ define acous dec -------
-		# embedding_size_dec + self.hidden_size_shared [200+200] -> hidden_size_dec [200]
+		# embedding_size_dec + self.hidden_size_shared [200+200]-> hidden_size_dec [200]
 		if not self.residual:
-			self.dec = torch.nn.LSTM(self.embedding_size + self.hidden_size_shared, self.hidden_size_dec,
-									num_layers=self.num_unilstm_dec, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=False)
+			self.dec = torch.nn.LSTM(
+				self.embedding_size+self.hidden_size_shared, self.hidden_size_dec,
+				num_layers=self.num_unilstm_dec, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=False)
 		else:
 			self.dec = nn.Module()
-			self.dec.add_module('l0', torch.nn.LSTM(self.embedding_size + self.hidden_size_shared, self.hidden_size_dec, num_layers=1, batch_first=batch_first, bias=True, dropout=dropout, bidirectional=False))
+			self.dec.add_module('l0', torch.nn.LSTM(
+				self.embedding_size+self.hidden_size_shared, self.hidden_size_dec,
+				num_layers=1, batch_first=batch_first,
+				bias=True, dropout=dropout, bidirectional=False))
 
 			for i in range(1, self.num_unilstm_dec):
-				self.dec.add_module('l'+str(i),
-					torch.nn.LSTM(self.hidden_size_dec, self.hidden_size_dec, num_layers=1, batch_first=batch_first, bias=True,dropout=dropout, bidirectional=False))
+				self.dec.add_module('l'+str(i), torch.nn.LSTM(self.hidden_size_dec,
+					self.hidden_size_dec,num_layers=1, batch_first=batch_first,
+					bias=True,dropout=dropout, bidirectional=False))
 
 
 	def reset_max_seq_len(self, max_seq_len):
@@ -206,7 +234,8 @@ class LAS(nn.Module):
 			return acous_feats
 
 
-	def forward(self, acous_feats, tgt=None, hidden=None, is_training=False, teacher_forcing_ratio=0.0, beam_width=1, use_gpu=False):
+	def forward(self, acous_feats, tgt=None, hidden=None, is_training=False,
+				teacher_forcing_ratio=0.0, beam_width=1, use_gpu=False):
 
 		"""
 			Args:
@@ -216,8 +245,8 @@ class LAS(nn.Module):
 				is_training: whether in eval or train mode
 				teacher_forcing_ratio: default at 1 - always teacher forcing
 			Returns:
-				decoder_outputs: list of step_output - log predicted_softmax [batch_size, 1, vocab_size_dec] * (T-1)
-				ret_dict
+				decoder_outputs: list of step_output -
+					log predicted_softmax [batch_size, 1, vocab_size_dec] * (T-1)
 		"""
 
 		# import pdb; pdb.set_trace()
@@ -245,7 +274,8 @@ class LAS(nn.Module):
 		batch_size = acous_feats.size(0)
 
 		if type(tgt) == type(None):
-			tgt = torch.Tensor([BOS]).repeat(batch_size, self.max_seq_len).type(torch.LongTensor).to(device=device)
+			tgt = torch.Tensor([BOS]).repeat(batch_size, self.max_seq_len)
+										.type(torch.LongTensor).to(device=device)
 
 		max_seq_len = tgt.size(1)
 		lengths = np.array([max_seq_len] * batch_size)
@@ -261,24 +291,47 @@ class LAS(nn.Module):
 		self.check_var('enc_mode', 'pyramid')
 		self.check_var('batch_norm', False)
 		if self.enc_mode == 'pyramid':
-			acous_outputs_l1, acous_hidden_l1 = self.acous_enc_l1(acous_feats, acous_hidden_init) # b x acous_len x 2dim
-			acous_outputs_l1 = self.dropout(acous_outputs_l1).reshape(batch_size, acous_len, acous_outputs_l1.size(-1))
-			if self.batch_norm: acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1)).permute(0, 2, 1)
-			acous_inputs_l2 = acous_outputs_l1.reshape(batch_size, int(acous_len/2), 2*acous_outputs_l1.size(-1)) # b x acous_len/2 x 4dim
-
-			acous_outputs_l2, acous_hidden_l2 = self.acous_enc_l2(acous_inputs_l2, acous_hidden_init) # b x acous_len/2 x 2dim
-			acous_outputs_l2 = self.dropout(acous_outputs_l2).reshape(batch_size, int(acous_len/2), acous_outputs_l2.size(-1))
-			if self.batch_norm: acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1)).permute(0, 2, 1)
-			acous_inputs_l3 = acous_outputs_l2.reshape(batch_size, int(acous_len/4), 2*acous_outputs_l2.size(-1)) # b x acous_len/4 x 4dim
-
-			acous_outputs_l3, acous_hidden_l3 = self.acous_enc_l3(acous_inputs_l3, acous_hidden_init) # b x acous_len/4 x 2dim
-			acous_outputs_l3 = self.dropout(acous_outputs_l3).reshape(batch_size, int(acous_len/4), acous_outputs_l3.size(-1))
-			if self.batch_norm: acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1)).permute(0, 2, 1)
-			acous_inputs_l4 = acous_outputs_l3.reshape(batch_size, int(acous_len/8), 2*acous_outputs_l3.size(-1)) # b x acous_len/8 x 4dim
-
-			acous_outputs_l4, acous_hidden_l4 = self.acous_enc_l4(acous_inputs_l4, acous_hidden_init) # b x acous_len/8 x 2dim
-			acous_outputs_l4 = self.dropout(acous_outputs_l4).reshape(batch_size, int(acous_len/8), acous_outputs_l4.size(-1))
-			if self.batch_norm: acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1)).permute(0, 2, 1)
+			# layer1
+			acous_outputs_l1, acous_hidden_l1 = self.acous_enc_l1(
+				acous_feats, acous_hidden_init) # b x acous_len x 2dim
+			acous_outputs_l1 = self.dropout(acous_outputs_l1)
+				.reshape(batch_size, acous_len, acous_outputs_l1.size(-1))
+			if self.batch_norm:
+				acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1))
+				.permute(0, 2, 1)
+			acous_inputs_l2 = acous_outputs_l1
+				.reshape(batch_size, int(acous_len/2), 2*acous_outputs_l1.size(-1))
+				# b x acous_len/2 x 4dim
+			# layer2
+			acous_outputs_l2, acous_hidden_l2 = self.acous_enc_l2(
+				acous_inputs_l2, acous_hidden_init) # b x acous_len/2 x 2dim
+			acous_outputs_l2 = self.dropout(acous_outputs_l2)
+				.reshape(batch_size, int(acous_len/2), acous_outputs_l2.size(-1))
+			if self.batch_norm:
+				acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1))
+				.permute(0, 2, 1)
+			acous_inputs_l3 = acous_outputs_l2
+				.reshape(batch_size, int(acous_len/4), 2*acous_outputs_l2.size(-1))
+				# b x acous_len/4 x 4dim
+			# layer3
+			acous_outputs_l3, acous_hidden_l3 = self.acous_enc_l3(
+				acous_inputs_l3, acous_hidden_init) # b x acous_len/4 x 2dim
+			acous_outputs_l3 = self.dropout(acous_outputs_l3)
+				.reshape(batch_size, int(acous_len/4), acous_outputs_l3.size(-1))
+			if self.batch_norm:
+				acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1))
+				.permute(0, 2, 1)
+			acous_inputs_l4 = acous_outputs_l3
+				.reshape(batch_size, int(acous_len/8), 2*acous_outputs_l3.size(-1))
+				# b x acous_len/8 x 4dim
+			# layer4
+			acous_outputs_l4, acous_hidden_l4 = self.acous_enc_l4
+				acous_inputs_l4, acous_hidden_init) # b x acous_len/8 x 2dim
+			acous_outputs_l4 = self.dropout(acous_outputs_l4)
+				.reshape(batch_size, int(acous_len/8), acous_outputs_l4.size(-1))
+			if self.batch_norm:
+				acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1))
+				.permute(0, 2, 1)
 			acous_outputs = acous_outputs_l4
 
 		elif self.enc_mode == 'cnn':
@@ -299,20 +352,27 @@ class LAS(nn.Module):
 
 		# beam search decoding
 		if not is_training and beam_width > 1:
-			decoder_outputs, decoder_hidden, metadata = self.beam_search_decoding(att_keys, att_vals, dec_hidden, mask, beam_width=beam_width)
+			decoder_outputs, decoder_hidden, metadata = \
+				self.beam_search_decoding(att_keys, att_vals, dec_hidden, mask,
+										beam_width=beam_width)
 			return decoder_outputs, decoder_hidden, metadata
 
 		# no beam search decoding
-		tgt_chunk = self.embedder(torch.Tensor([BOS]).repeat(batch_size,1).type(torch.LongTensor).to(device=device)) # BOS
-		cell_value = torch.FloatTensor([0]).repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
+		tgt_chunk = self.embedder(torch.Tensor([BOS])
+			.repeat(batch_size,1).type(torch.LongTensor).to(device=device)) # BOS
+		cell_value = torch.FloatTensor([0])
+			.repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
 		prev_c = torch.FloatTensor([0]).repeat(batch_size, 1, max_seq_len).to(device=device)
 		attn_outputs = []
 		for idx in range(max_seq_len):
 			predicted_logsoftmax, dec_hidden, step_attn, c_out, cell_value, attn_output = \
-				self.forward_step(self.acous_att, self.acous_ffn, self.acous_out, att_keys, att_vals, tgt_chunk, cell_value, dec_hidden, mask, prev_c)
+				self.forward_step(self.acous_att, self.acous_ffn, self.acous_out,
+								att_keys, att_vals, tgt_chunk, cell_value,
+								dec_hidden, mask, prev_c)
 			predicted_logsoftmax = predicted_logsoftmax.squeeze(1) # [b, vocab_size]
 			step_output = predicted_logsoftmax
-			symbols, decoder_outputs, sequence_symbols, lengths = self.decode(idx, step_output, decoder_outputs, sequence_symbols, lengths)
+			symbols, decoder_outputs, sequence_symbols, lengths = \
+				self.decode(idx, step_output, decoder_outputs, sequence_symbols, lengths)
 			prev_c = c_out
 			if use_teacher_forcing:
 				tgt_chunk = emb_tgt[:, idx].unsqueeze(1)
@@ -342,7 +402,8 @@ class LAS(nn.Module):
 			symbols = decoder_outputs[-1].topk(1)[1]
 			sequence_symbols.append(symbols)
 
-			eos_batches = torch.max(symbols.data.eq(EOS), symbols.data.eq(PAD)) # equivalent to logical OR
+			eos_batches = torch.max(symbols.data.eq(EOS), symbols.data.eq(PAD))
+			# equivalent to logical OR
 			# eos_batches = symbols.data.eq(PAD)
 			if eos_batches.dim() > 0:
 				eos_batches = eos_batches.cpu().view(-1).numpy()
@@ -351,7 +412,8 @@ class LAS(nn.Module):
 			return symbols, decoder_outputs, sequence_symbols, lengths
 
 
-	def forward_step(self, att_func, ffn_func, out_func, att_keys, att_vals, tgt_chunk, prev_cell_value,
+	def forward_step(self, att_func, ffn_func, out_func,
+		att_keys, att_vals, tgt_chunk, prev_cell_value,
 		dec_hidden=None, mask_src=None, prev_c=None):
 
 		"""
@@ -361,9 +423,11 @@ class LAS(nn.Module):
 				att_keys:   [batch_size, seq_len, acous_hidden_size * 2]
 				att_vals:   [batch_size, seq_len, acous_hidden_size * 2]
 				tgt_chunk:  tgt word embeddings
-							no teacher forcing - [batch_size, 1, embedding_size_dec] (becomes 2d when indexed)
+							no teacher forcing - [batch_size, 1, embedding_size_dec]
+							(becomes 2d when indexed)
 				prev_cell_value:
-							previous cell value before prediction [batch_size, 1, self.state_size]
+							previous cell value before prediction
+							[batch_size, 1, self.state_size]
 				dec_hidden:
 							initial hidden state for dec layer
 				mask_src:
@@ -375,21 +439,25 @@ class LAS(nn.Module):
 				predicted_softmax: log probilities [batch_size, vocab_size_dec]
 				dec_hidden: a list of hidden states of each dec layer
 				attn: attention weights
-				cell_value: transformed attention output [batch_size, 1, self.hidden_size_shared]
+				cell_value: transformed attention output
+							[batch_size, 1, self.hidden_size_shared]
 		"""
 
 		# record sizes
 		batch_size = tgt_chunk.size(0)
 		tgt_chunk_etd = torch.cat([tgt_chunk, prev_cell_value], -1)
-		tgt_chunk_etd = tgt_chunk_etd.view(-1, 1, self.embedding_size + self.hidden_size_shared)
+		tgt_chunk_etd = tgt_chunk_etd
+			.view(-1, 1, self.embedding_size + self.hidden_size_shared)
 
 		# run dec
-		# default dec_hidden: [h_0, c_0]; with h_0 [num_layers * num_directions(==1), batch, hidden_size]
+		# default dec_hidden: [h_0, c_0];
+		# with h_0 [num_layers * num_directions(==1), batch, hidden_size]
 		if not self.residual:
 			dec_outputs, dec_hidden = self.dec(tgt_chunk, dec_hidden)
 			dec_outputs = self.dropout(dec_outputs)
 		else:
-			# store states layer by layer num_layers * ([1, batch, hidden_size], [1, batch, hidden_size])
+			# store states layer by layer -
+			# num_layers * ([1, batch, hidden_size], [1, batch, hidden_size])
 			dec_hidden_lis = []
 
 			# layer0
@@ -398,7 +466,8 @@ class LAS(nn.Module):
 				dec_outputs, dec_hidden_out = dec_func_first(tgt_chunk_etd, None)
 			else:
 				index = torch.tensor([0]).to(device=device) # choose the 0th layer
-				dec_hidden_in = tuple([h.index_select(dim=0, index=index) for h in dec_hidden])
+				dec_hidden_in = tuple(
+					[h.index_select(dim=0, index=index) for h in dec_hidden])
 				dec_outputs, dec_hidden_out = dec_func_first(tgt_chunk_etd, dec_hidden_in)
 			dec_hidden_lis.append(dec_hidden_out)
 			# no residual for 0th layer
@@ -412,7 +481,8 @@ class LAS(nn.Module):
 					dec_outputs, dec_hidden_out = dec_func(dec_inputs, None)
 				else:
 					index = torch.tensor([i]).to(device=device)
-					dec_hidden_in = tuple([h.index_select(dim=0, index=index) for h in dec_hidden])
+					dec_hidden_in = tuple(
+						[h.index_select(dim=0, index=index) for h in dec_hidden])
 					dec_outputs, dec_hidden_out = dec_func(dec_inputs, dec_hidden_in)
 				dec_hidden_lis.append(dec_hidden_out)
 				if i < self.num_unilstm_dec - 1:
@@ -439,11 +509,13 @@ class LAS(nn.Module):
 		return predicted_logsoftmax, dec_hidden, attn, c_out, cell_value, att_outputs
 
 
-	def beam_search_decoding(self, att_keys, att_vals, dec_hidden=None, mask_src=None, prev_c=None, beam_width=10):
+	def beam_search_decoding(self,
+		att_keys, att_vals, dec_hidden=None, mask_src=None, prev_c=None, beam_width=10):
 
 		"""
 			beam search decoding - only used for evaluation
-			Modified from - https://github.com/IBM/pytorch-seq2seq/blob/master/seq2seq/models/TopKDecoder.py
+			Modified from -
+			https://github.com/IBM/pytorch-seq2seq/blob/master/seq2seq/models/TopKDecoder.py
 
 			Shortcuts:
 				beam_width: k
@@ -463,26 +535,34 @@ class LAS(nn.Module):
 			Returns:
 				decoder_outputs: output probabilities [(batch, 1, vocab_size)] * T
 				decoder_hidden (num_layers * num_direc tions, batch, hidden_size):
-										tensor containing the last hidden state of the decoder.
+					tensor containing the last hidden state of the decoder.
 				ret_dict: dictionary containing additional information as follows
-						{
-							*length* : list of integers representing lengths of output sequences,
-							*topk_length*: list of integers representing lengths of beam search sequences,
-							*sequence* : list of sequences, where each sequence is a list of predicted token IDs,
-							*topk_sequence* : list of beam search sequences, each beam is a list of token IDs,
-							*outputs* : [(batch, k, vocab_size)] * sequence_length: A list of the output probabilities (p_n)
-						}.
+				{
+					*length*: list of integers representing lengths of output sequences,
+					*topk_length*:
+						list of integers representing lengths of beam search sequences,
+					*sequence*: list of sequences,
+						where each sequence is a list of predicted token IDs,
+					*topk_sequence*: list of beam search sequences,
+						each beam is a list of token IDs,
+					*outputs*: [(batch, k, vocab_size)] * sequence_length:
+						A list of the output probabilities (p_n)
+				}.
 		"""
 
 		# define var
 		batch_size = att_keys.size(0)
-		self.pos_index = Variable(torch.LongTensor(range(batch_size)) * beam_width).view(-1, 1).to(device=device)
+		self.pos_index = Variable(torch.LongTensor(range(batch_size)) * beam_width)
+			.view(-1, 1).to(device=device)
 
 		# initialize the input vector; att_c_value
-		input_var = Variable(torch.transpose(torch.LongTensor([[BOS] * batch_size * beam_width]), 0, 1)).to(device=device)
+		input_var = Variable(torch.transpose(
+			torch.LongTensor([[BOS] * batch_size * beam_width]), 0, 1)).to(device=device)
 		input_var_emb = self.embedder_dec(input_var).to(device=device)
-		prev_c = torch.FloatTensor([0]).repeat(batch_size, 1, self.max_seq_len).to(device=device)
-		cell_value = torch.FloatTensor([0]).repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
+		prev_c = torch.FloatTensor([0])
+			.repeat(batch_size, 1, self.max_seq_len).to(device=device)
+		cell_value = torch.FloatTensor([0])
+			.repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
 
 		# inflate attention keys and values (derived from encoder outputs)
 		# correct ordering
@@ -500,7 +580,9 @@ class LAS(nn.Module):
 		# ignore the inflated copies to avoid duplicate entries in the top k
 		sequence_scores = torch.Tensor(batch_size * beam_width, 1).to(device=device)
 		sequence_scores.fill_(-float('Inf'))
-		sequence_scores.index_fill_(0, torch.LongTensor([i * beam_width for i in range(0, batch_size)]).to(device=device), 0.0)
+		sequence_scores.index_fill_(0,
+			torch.LongTensor([i * beam_width for i in range(0, batch_size)])
+			.to(device=device), 0.0)
 		sequence_scores = Variable(sequence_scores)
 
 		# Store decisions for backtracking
@@ -513,8 +595,9 @@ class LAS(nn.Module):
 		for _ in range(self.max_seq_len):
 
 			predicted_softmax, dec_hidden, step_attn, inflated_c_out, inflated_cell_value, *_ = \
-				self.forward_step(self.acous_att, self.acous_ffn, self.acous_out, inflated_att_keys, inflated_att_vals, input_var_emb, inflated_cell_value,
-								dec_hidden, inflated_mask_src, inflated_prev_c)
+				self.forward_step(self.acous_att, self.acous_ffn, self.acous_out,
+					inflated_att_keys, inflated_att_vals, input_var_emb, inflated_cell_value,
+					dec_hidden, inflated_mask_src, inflated_prev_c)
 			inflated_prev_c = inflated_c_out
 
 			# retain output probs
@@ -525,24 +608,30 @@ class LAS(nn.Module):
 			sequence_scores = _inflate(sequence_scores, self.vocab_size, 1)
 			sequence_scores += predicted_softmax.squeeze(1) # [bk x v]
 
-			scores, candidates = sequence_scores.view(batch_size, -1).topk(beam_width, dim=1) # [b x kv] -> [b x k]
+			# [b x kv] -> [b x k]
+			scores, candidates = sequence_scores.view(batch_size, -1)
+				.topk(beam_width, dim=1)
 
 			# Reshape input = (bk, 1) and sequence_scores = (bk, 1)
-			input_var = (candidates % self.vocab_size).view(batch_size * beam_width, 1).to(device=device)
+			input_var = (candidates % self.vocab_size).view(batch_size * beam_width, 1)
+				.to(device=device)
 			input_var_emb = self.embedder_dec(input_var)
 			sequence_scores = scores.view(batch_size * beam_width, 1) #[bk x 1]
 
 			# Update fields for next timestep
-			predecessors = (candidates / self.vocab_size + self.pos_index.expand_as(candidates)).\
-							view(batch_size * beam_width, 1)
+			predecessors = (candidates / self.vocab_size + self.pos_index
+				.expand_as(candidates)).view(batch_size * beam_width, 1)
 
-			# dec_hidden: [h_0, c_0]; with h_0 [num_layers * num_directions, batch, hidden_size]
+			# dec_hidden: [h_0, c_0];
+			# with h_0 [num_layers * num_directions, batch, hidden_size]
 			if isinstance(dec_hidden, tuple):
-				dec_hidden = tuple([h.index_select(1, predecessors.squeeze()) for h in dec_hidden])
+				dec_hidden = tuple(
+					[h.index_select(1, predecessors.squeeze()) for h in dec_hidden])
 			else:
 				dec_hidden = dec_hidden.index_select(1, predecessors.squeeze())
 
-			# Update sequence scores and erase scores for end-of-sentence symbol so that they aren't expanded
+			# Update sequence scores and erase scores
+			# for end-of-sentence symbol so that they aren't expanded
 			stored_scores.append(sequence_scores.clone())
 
 			# Cache results for backtracking
@@ -552,8 +641,8 @@ class LAS(nn.Module):
 
 		# Do backtracking to return the optimal values
 		output, h_t, h_n, s, l, p = self._backtrack(stored_outputs, stored_hidden,
-													stored_predecessors, stored_emitted_symbols,
-													stored_scores, batch_size, self.hidden_size_dec, beam_width)
+			stored_predecessors, stored_emitted_symbols,
+			stored_scores, batch_size, self.hidden_size_dec, beam_width)
 
 		# Build return objects
 		decoder_outputs = [step[:, 0, :].squeeze(1) for step in output]
@@ -573,30 +662,42 @@ class LAS(nn.Module):
 		return decoder_outputs, decoder_hidden, metadata
 
 
-	def _backtrack(self, nw_output, nw_hidden, predecessors, symbols, scores, b, hidden_size, beam_width):
+	def _backtrack(self,
+		nw_output, nw_hidden, predecessors, symbols,
+		scores, b, hidden_size, beam_width):
 
 		"""
 			Backtracks over batch to generate optimal k-sequences.
 			https://github.com/IBM/pytorch-seq2seq/blob/master/seq2seq/models/TopKDecoder.py
 
 			Args:
-				nw_output [(batch*k, vocab_size)] * sequence_length: A Tensor of outputs from network
-				nw_hidden [(num_layers, batch*k, hidden_size)] * sequence_length: A Tensor of hidden states from network
+				nw_output [(batch*k, vocab_size)] * sequence_length:
+					A Tensor of outputs from network
+				nw_hidden [(num_layers, batch*k, hidden_size)] * sequence_length:
+					A Tensor of hidden states from network
 				predecessors [(batch*k)] * sequence_length: A Tensor of predecessors
 				symbols [(batch*k)] * sequence_length: A Tensor of predicted tokens
-				scores [(batch*k)] * sequence_length: A Tensor containing sequence scores for every token t = [0, ... , seq_len - 1]
+				scores [(batch*k)] * sequence_length:
+					A Tensor containing sequence scores for every token
+					t = [0, ... , seq_len - 1]
 				b: Size of the batch
 				hidden_size: Size of the hidden state
 
 			Returns:
-				output [(batch, k, vocab_size)] * sequence_length: A list of the output probabilities (p_n)
+				output [(batch, k, vocab_size)] * sequence_length:
+					A list of the output probabilities (p_n)
 				from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
-				h_t [(batch, k, hidden_size)] * sequence_length: A list containing the output features (h_n)
-				from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
-				h_n(batch, k, hidden_size): A Tensor containing the last hidden state for all top-k sequences.
-				score [batch, k]: A list containing the final scores for all top-k sequences
-				length [batch, k]: A list specifying the length of each sequence in the top-k candidates
-				p (batch, k, sequence_len): A Tensor containing predicted sequence [b x k x 1] * T
+				h_t [(batch, k, hidden_size)] * sequence_length:
+					A list containing the output features (h_n)
+					from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
+				h_n(batch, k, hidden_size):
+					A Tensor containing the last hidden state for all top-k sequences.
+				score [batch, k]:
+					A list containing the final scores for all top-k sequences
+				length [batch, k]:
+					A list specifying the length of each sequence in the top-k candidates
+				p (batch, k, sequence_len):
+					A Tensor containing predicted sequence [b x k x 1] * T
 		"""
 
 		# initialize return variables given different types
@@ -611,7 +712,8 @@ class LAS(nn.Module):
 		lstm = isinstance(nw_hidden[0], tuple)
 		if lstm:
 			state_size = nw_hidden[0][0].size()
-			h_n = tuple([torch.zeros(state_size).to(device=device), torch.zeros(state_size).to(device=device)])
+			h_n = tuple([torch.zeros(state_size).to(device=device),
+				torch.zeros(state_size).to(device=device)])
 		else:
 			h_n = torch.zeros(nw_hidden[0].size()).to(device=device)
 
@@ -634,20 +736,23 @@ class LAS(nn.Module):
 		t = self.max_seq_len - 1
 		# initialize the back pointer with the sorted order of the last step beams.
 		# add self.pos_index for indexing variable with b*k as the first dimension.
-		t_predecessors = (sorted_idx + self.pos_index.expand_as(sorted_idx)).view(b * beam_width).to(device=device)
+		t_predecessors = (sorted_idx + self.pos_index.expand_as(sorted_idx))
+			.view(b * beam_width).to(device=device)
 
 		while t >= 0:
 			# Re-order the variables with the back pointer
 			current_output = nw_output[t].index_select(0, t_predecessors)
 			if lstm:
-				current_hidden = tuple([h.index_select(1, t_predecessors) for h in nw_hidden[t]])
+				current_hidden = tuple(
+					[h.index_select(1, t_predecessors) for h in nw_hidden[t]])
 			else:
 				current_hidden = nw_hidden[t].index_select(1, t_predecessors)
 			current_symbol = symbols[t].index_select(0, t_predecessors)
 
 			# Re-order the back pointer of the previous step with the back pointer of
 			# the current step
-			t_predecessors = predecessors[t].index_select(0, t_predecessors).squeeze().to(device=device)
+			t_predecessors = predecessors[t]
+				.index_select(0, t_predecessors).squeeze().to(device=device)
 
 			"""
 				This tricky block handles dropped sequences that see EOS earlier.
@@ -687,13 +792,19 @@ class LAS(nn.Module):
 					t_predecessors[res_idx] = predecessors[t][idx[0]].to(device=device)
 					current_output[res_idx, :] = nw_output[t][idx[0], :].to(device=device)
 					if lstm:
-						current_hidden[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :].to(device=device)
-						current_hidden[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :].to(device=device)
-						h_n[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :].data.to(device=device)
-						h_n[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :].data.to(device=device)
+						current_hidden[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :]
+							.to(device=device)
+						current_hidden[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :]
+							.to(device=device)
+						h_n[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :].data
+							.to(device=device)
+						h_n[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :].data
+							.to(device=device)
 					else:
-						current_hidden[:, res_idx, :] = nw_hidden[t][:, idx[0], :].to(device=device)
-						h_n[:, res_idx, :] = nw_hidden[t][:, idx[0], :].data.to(device=device)
+						current_hidden[:, res_idx, :] = nw_hidden[t][:, idx[0], :]
+							.to(device=device)
+						h_n[:, res_idx, :] = nw_hidden[t][:, idx[0], :].data
+							.to(device=device)
 					current_symbol[res_idx, :] = symbols[t][idx[0]].to(device=device)
 					s[b_idx, res_k_idx] = scores[t][idx[0]].data[0].to(device=device)
 					l[b_idx][res_k_idx] = t + 1
@@ -711,18 +822,25 @@ class LAS(nn.Module):
 		for b_idx in range(b):
 			l[b_idx] = [l[b_idx][k_idx.item()] for k_idx in re_sorted_idx[b_idx,:]]
 
-		re_sorted_idx = (re_sorted_idx + self.pos_index.expand_as(re_sorted_idx)).view(b * beam_width).to(device=device)
+		re_sorted_idx = (re_sorted_idx + self.pos_index.expand_as(re_sorted_idx))
+			.view(b * beam_width).to(device=device)
 
 		# Reverse the sequences and re-order at the same time
 		# It is reversed because the backtracking happens in reverse time order
-		output = [step.index_select(0, re_sorted_idx).view(b, beam_width, -1) for step in reversed(output)]
-		p = [step.index_select(0, re_sorted_idx).view(b, beam_width, -1) for step in reversed(p)]
+		output = [step.index_select(0, re_sorted_idx).
+			view(b, beam_width, -1) for step in reversed(output)]
+		p = [step.index_select(0, re_sorted_idx)
+			.view(b, beam_width, -1) for step in reversed(p)]
 		if lstm:
-			h_t = [tuple([h.index_select(1, re_sorted_idx.to(device=device)).view(-1, b, beam_width, hidden_size) for h in step]) for step in reversed(h_t)]
-			h_n = tuple([h.index_select(1, re_sorted_idx.data.to(device=device)).view(-1, b, beam_width, hidden_size) for h in h_n])
+			h_t = [tuple([h.index_select(1, re_sorted_idx.to(device=device))
+				.view(-1, b, beam_width, hidden_size) for h in step]) for step in reversed(h_t)]
+			h_n = tuple([h.index_select(1, re_sorted_idx.data.to(device=device))
+				.view(-1, b, beam_width, hidden_size) for h in h_n])
 		else:
-			h_t = [step.index_select(1, re_sorted_idx.to(device=device)).view(-1, b, beam_width, hidden_size) for step in reversed(h_t)]
-			h_n = h_n.index_select(1, re_sorted_idx.data.to(device=device)).view(-1, b, beam_width, hidden_size)
+			h_t = [step.index_select(1, re_sorted_idx.to(device=device))
+				.view(-1, b, beam_width, hidden_size) for step in reversed(h_t)]
+			h_n = h_n.index_select(1, re_sorted_idx.data.to(device=device))
+				.view(-1, b, beam_width, hidden_size)
 		s = s.data
 
 		return output, h_t, h_n, s, l, p
@@ -742,7 +860,8 @@ def get_base_hidden(hidden):
 def _inflate(tensor, times, dim):
 
 	"""
-		Given a tensor, 'inflates' it along the given dimension by replicating each slice specified number of times (in-place)
+		Given a tensor, 'inflates' it along the given dimension
+		by replicating each slice specified number of times (in-place)
 		Args:
 			tensor: A :class:`Tensor` to inflate
 			times: number of repetitions

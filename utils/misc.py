@@ -20,7 +20,7 @@ def get_memory_alloc():
 	""" get memory used by current process """
 
 	process = psutil.Process(os.getpid())
-	mem_byte = process.memory_info().rss  # in bytes 
+	mem_byte = process.memory_info().rss  # in bytes
 	mem_kb = float(mem_byte) / (1024.0)
 	mem_mb = float(mem_kb) / (1024.0)
 	mem_gb = float(mem_mb) / (1024.0)
@@ -31,7 +31,7 @@ def get_memory_alloc():
 def get_device_memory():
 
 	""" get total memory on current device """
-	
+
 	device = torch.cuda.current_device()
 	mem_byte = torch.cuda.get_device_properties(device).total_memory
 	mem_kb = float(mem_byte) / (1024.0)
@@ -202,10 +202,10 @@ def check_src_tensor_print(src_ids, src_id2word):
 
 def _convert_to_words(seqlist, tgt_id2word):
 
-	""" 
-		convert sequences of word_ids to words 
+	"""
+		convert sequences of word_ids to words
 		Args:
-			seqlist: ids of predicted sentences [seq_len x num_batch]  
+			seqlist: ids of predicted sentences [seq_len x num_batch]
 			tgt_id2word: id2word dictionary
 		Returns:
 			a sequence[batch] of sequence[time] of words
@@ -226,10 +226,10 @@ def _convert_to_words(seqlist, tgt_id2word):
 
 def _convert_to_words_batchfirst(seqlist, tgt_id2word):
 
-	""" 
-		convert sequences of word_ids to words 
+	"""
+		convert sequences of word_ids to words
 		Args:
-			seqlist: ids of predicted sentences [num_batch x seq_len]  
+			seqlist: ids of predicted sentences [num_batch x seq_len]
 			tgt_id2word: id2word dictionary
 		Returns:
 			a sequence[batch] of sequence[time] of words
@@ -271,7 +271,7 @@ def _convert_to_tensor_pad(variable, use_gpu, maxlen=None):
 		device = torch.device('cuda')
 	else:
 		device = torch.device('cpu')
-	
+
 	if type(variable) == type(None):
 		return None
 
@@ -279,18 +279,20 @@ def _convert_to_tensor_pad(variable, use_gpu, maxlen=None):
 	for elem in variable:
 		new_variable.append(torch.tensor(elem).to(device))
 
-	if type(maxlen) == type(None): 
-		mytensor = torch.nn.utils.rnn.pad_sequence(new_variable, batch_first=True, padding_value=PAD)
+	if type(maxlen) == type(None):
+		mytensor = torch.nn.utils.rnn.pad_sequence(
+			new_variable, batch_first=True, padding_value=PAD)
 	else:
 		dummy = torch.ones(maxlen)
 		new_variable.append(dummy)
-		mytensor = torch.nn.utils.rnn.pad_sequence(new_variable, batch_first=True, padding_value=PAD)[:-1]
+		mytensor = torch.nn.utils.rnn.pad_sequence(
+			new_variable, batch_first=True, padding_value=PAD)[:-1]
 
 	return mytensor
 
 
 def _del_var(model):
-	
+
 	""" delete var to free up memory """
 
 	for name, param in model.named_parameters():
@@ -300,9 +302,10 @@ def _del_var(model):
 
 def plot_alignment(alignment, path, src, hyp, ref=None):
 
-	""" 
-		plot att alignment - 
-		adapted from: https://gitlab.com/Josh-ES/tacotron/blob/master/tacotron/utils/plot.py 
+	"""
+		plot att alignment -
+		adapted from:
+		 	https://gitlab.com/Josh-ES/tacotron/blob/master/tacotron/utils/plot.py
 	"""
 
 	fig, ax = plt.subplots(figsize=(12, 10))
@@ -332,9 +335,10 @@ def plot_alignment(alignment, path, src, hyp, ref=None):
 
 def plot_attention(alignment, path, words, words_right=None):
 
-	""" 
-		plot att alignment - 
-		adapted from: https://gitlab.com/Josh-ES/tacotron/blob/master/tacotron/utils/plot.py 
+	"""
+		plot att alignment -
+		adapted from:
+			https://gitlab.com/Josh-ES/tacotron/blob/master/tacotron/utils/plot.py
 	"""
 
 	plt.rcParams.update({"axes.xmargin" : 0,
@@ -375,7 +379,8 @@ def plot_attention(alignment, path, words, words_right=None):
 def _inflate(tensor, times, dim):
 
 	"""
-		Given a tensor, 'inflates' it along the given dimension by replicating each slice specified number of times (in-place)
+		Given a tensor, 'inflates' it along the given dimension
+		by replicating each slice specified number of times (in-place)
 		Args:
 			tensor: A :class:`Tensor` to inflate
 			times: number of repetitions
@@ -408,7 +413,7 @@ def _inflate(tensor, times, dim):
 
 
 def inflat_hidden_state(hidden_state, k):
-	
+
 	if hidden_state is None:
 		hidden = None
 	else:
@@ -424,7 +429,7 @@ def convert_dd_att_ref(labs):
 	"""
 		labs: b * l
 		out: b * l
-		conversion of each row: 
+		conversion of each row:
 		in	0 0 0 1 1 0 0 0 0 0 ...
 		out	0 1 2 5 6 7 8 9 ...
 	"""
@@ -441,7 +446,7 @@ def convert_dd_att_ref(labs):
 	# print(outs)
 	# print(outs_pad.size())
 	# print(outs_pad[:-1,:].size())
-	
+
 	# print(res)
 	# input('...')
 
@@ -450,19 +455,19 @@ def convert_dd_att_ref(labs):
 
 def load_acous_from_flis(flis, norm_param=None):
 
-	""" 
-		load acoustic features according to file list 
+	"""
+		load acoustic features according to file list
 		norm: 		apply per speaker normalisation
 		mapdict: 	npfile name map to speaker id
 	"""
 
 	# import pdb; pdb.set_trace()
-	
+
 	max_len = 0
 	feat_lis = []
 	for idx in range(len(flis)):
 		f = flis[idx]
-		featarr = np.load(f)		
+		featarr = np.load(f)
 		if type(norm_param) != type(None):
 			mu, std = norm_param[idx] # dim=40
 			featarr = 1. * (featarr - mu) / std
@@ -499,24 +504,7 @@ def load_mu_std(spkids):
 			mu = np.load(f_mu)
 			std = np.load(f_std)
 			mydict[spkid] = [mu, std]
-			
+
 		norm_param.append(mydict[spkid])
 
 	return norm_param
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

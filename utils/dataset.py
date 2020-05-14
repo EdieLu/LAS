@@ -15,7 +15,7 @@ from utils.config import PAD, UNK, BOS, EOS, SPC
 class IterDataset(torch.utils.data.Dataset):
 
 	"""
-		load features from 
+		load features from
 
 		'src_word_ids':train_src_word_ids[i_start:i_end],
 		'src_sentence_lengths': train_src_sentence_lengths[i_start:i_end],
@@ -25,12 +25,12 @@ class IterDataset(torch.utils.data.Dataset):
 	"""
 
 	def __init__(self, batches, acous_norm):
-		
+
 		super(Dataset).__init__()
 
 		self.batches = batches
 		self.acous_norm = acous_norm
-		
+
 	def __len__(self):
 
 		return len(self.batches)
@@ -38,7 +38,8 @@ class IterDataset(torch.utils.data.Dataset):
 	def __getitem__(self, index):
 
 		srcid = self.batches[index]['src_word_ids'] # lis
-		srcid = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(elem) for elem in srcid], batch_first=True) # tensor
+		srcid = torch.nn.utils.rnn.pad_sequence(
+			[torch.LongTensor(elem) for elem in srcid], batch_first=True) # tensor
 		srclen = self.batches[index]['src_sentence_lengths'] # lis
 		acous_feat = self.load_file(index) # tensor
 		acouslen = self.batches[index]['acous_lengths'] # lis
@@ -62,8 +63,10 @@ class IterDataset(torch.utils.data.Dataset):
 		norm_param = []
 		mydict = {}
 		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/fbk_mu_std'
-		base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/eval2000/fbk_mu_std' #only used for las evaluation
-		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib/add-acoustics/eval3/fbk_mu_std' #for eval3 
+		base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/eval2000/fbk_mu_std'
+			#only used for las evaluation
+		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib/add-acoustics/eval3/fbk_mu_std'
+			#for eval3
 
 		for idx in range(len(spkids)):
 			spkid = spkids[idx]
@@ -75,7 +78,7 @@ class IterDataset(torch.utils.data.Dataset):
 				mu = np.load(f_mu)
 				std = np.load(f_std)
 				mydict[spkid] = [mu, std]
-				
+
 			norm_param.append(mydict[spkid])
 
 		return norm_param
@@ -87,7 +90,7 @@ class IterDataset(torch.utils.data.Dataset):
 		feat_lis = []
 		for idx in range(len(flis)):
 			f = flis[idx]
-			featarr = np.load(f)		
+			featarr = np.load(f)
 			if type(norm_param) != type(None):
 				mu, std = norm_param[idx] # dim=40
 				featarr = 1. * (featarr - mu) / std
@@ -109,7 +112,7 @@ class Dataset(object):
 	""" load src-tgt from file """
 
 	def __init__(self,
-		# add params 
+		# add params
 		path_src,
 		path_tgt,
 		path_vocab_src,
@@ -140,7 +143,8 @@ class Dataset(object):
 		self.acous_norm=acous_norm
 		self.use_type = use_type
 
-		self.acous_max_len = 6200 # 3000 for train  | 6200 for eval3 should include all acous	
+		self.acous_max_len = 6200
+		# 3000 for train  | 6200 for eval3 should include all acous
 		print('acous path: {}'.format(self.acous_path))
 		print('max acous length: {}'.format(self.acous_max_len))
 
@@ -151,7 +155,7 @@ class Dataset(object):
 
 
 	def load_vocab(self):
-		
+
 		# import pdb; pdb.set_trace()
 		self.vocab_src = []
 		with codecs.open(self.path_vocab_src, encoding='UTF-8') as f:
@@ -191,16 +195,17 @@ class Dataset(object):
 			with codecs.open(self.path_tgt, encoding='UTF-8') as f:
 				self.tgt_sentences = f.readlines()
 
-			assert len(self.src_sentences) == len(self.tgt_sentences), 'Mismatch src:tgt - {}:{}' \
-						.format(len(self.src_sentences),len(self.tgt_sentences))
-		
+			assert len(self.src_sentences) == len(self.tgt_sentences), \
+				'Mismatch src:tgt - {}:{}' \
+				.format(len(self.src_sentences),len(self.tgt_sentences))
+
 		if self.seqrev:
 			for idx in range(len(self.src_sentences)):
 				src_sent_rev = self.src_sentences[idx].strip().split()[::-1]
 				tgt_sent_rev = self.tgt_sentences[idx].strip().split()[::-1]
 				self.src_sentences[idx] = ' '.join(src_sent_rev)
 				self.tgt_sentences[idx] = ' '.join(tgt_sent_rev)
-	
+
 
 	def load_tsv(self):
 
@@ -236,11 +241,14 @@ class Dataset(object):
 						elif len(elems) == 2:
 							lab = elems[-1]
 						else:
-							assert False, 'check tsv file, requires either 2 or 3 elems per line'
+							assert False, \
+								'check tsv file, requires either 2 or 3 elems per line'
 
 						lab_seq.append(lab)
 
-		assert len(self.src_sentences)==len(self.ddfd_seq_labs), 'Mismatch src:ddfd_lab - {}:{}'.format(len(self.src_sentences),len(self.ddfd_seq_labs))
+		assert len(self.src_sentences)==len(self.ddfd_seq_labs), \
+			'Mismatch src:ddfd_lab - {}:{}'.format(
+			len(self.src_sentences),len(self.ddfd_seq_labs))
 
 
 	def load_acous_flis(self):
@@ -252,7 +260,7 @@ class Dataset(object):
 		self.acous_spkids = []
 		if type(self.acous_path) == type(None):
 			pass
-		else: 
+		else:
 			f = open(self.acous_path, 'r')
 			lines = f.readlines()
 			for line in lines:
@@ -295,7 +303,8 @@ class Dataset(object):
 		train_acous_spkids = []
 		train_acous_lengths = []
 
-		assert len(self.acous_flis) == len(self.src_sentences), 'mismatch acoustics and sentences'
+		assert len(self.acous_flis) == len(self.src_sentences), \
+			'mismatch acoustics and sentences'
 
 		for idx in range(len(self.src_sentences)):
 			# import pdb; pdb.set_trace()
@@ -304,7 +313,7 @@ class Dataset(object):
 				src_words = src_sentence.strip()
 			elif self.use_type == 'word':
 				src_words = src_sentence.strip().split()
-			elif self.use_type == 'bpe':	
+			elif self.use_type == 'bpe':
 				# already converted to bpe
 				src_words = src_sentence.strip().split()
 
@@ -336,21 +345,23 @@ class Dataset(object):
 				else:
 					src_ids.append(UNK)
 			src_ids.append(EOS)
-			assert src_ids[0] != PAD 
+			assert src_ids[0] != PAD
 
 			train_src_word_ids.append(src_ids)
 			train_src_sentence_lengths.append(len(src_words)+1) # include one EOS
 
 		# import pdb; pdb.set_trace()
-		assert (len(train_src_word_ids) == len(train_acous_flis)), "train_src_word_ids != train_acous_flis"
+		assert (len(train_src_word_ids) == len(train_acous_flis)), \
+			"train_src_word_ids != train_acous_flis"
 
 		self.num_training_sentences = len(train_src_word_ids)
-		print("num_sentences: ", self.num_training_sentences) # only those that are not too long
+		print("num_sentences: ", self.num_training_sentences)
+			# only those that are not too long
 
 		# set class var to be used in batchify
 		self.train_src_word_ids = train_src_word_ids
 		self.train_src_sentence_lengths = train_src_sentence_lengths
-		self.train_acous_flis = train_acous_flis # list of acous npy fnames 
+		self.train_acous_flis = train_acous_flis # list of acous npy fnames
 		self.train_acous_spkids = train_acous_spkids
 		self.train_acous_lengths = train_acous_lengths
 
@@ -362,18 +373,22 @@ class Dataset(object):
 				is_train: switch on shuffling is is_train
 			Returns:
 				batches of dataset
-				src:            a  SPC c a t SPC s a t SPC o n SPC t h e SPC m a t EOS PAD PAD ...
+				src:
+				a  SPC c a t SPC s a t SPC o n SPC t h e SPC m a t EOS PAD PAD ...
 		"""
 
 		# organise by length
-		_x = list(zip(self.train_src_word_ids, self.train_src_sentence_lengths, self.train_acous_flis, self.train_acous_spkids, self.train_acous_lengths))
-		if is_train: 
+		_x = list(zip(self.train_src_word_ids, self.train_src_sentence_lengths,
+			self.train_acous_flis, self.train_acous_spkids, self.train_acous_lengths))
+		if is_train:
 			_x = sorted(_x, key=lambda l:l[1])
 			# random.shuffle(_x)
-		train_src_word_ids, train_src_sentence_lengths, train_acous_flis, train_acous_spkids, train_acous_lengths = zip(*_x)
+		train_src_word_ids, train_src_sentence_lengths, train_acous_flis, \
+			train_acous_spkids, train_acous_lengths = zip(*_x)
 
 		# manual batching to allow shuffling by pt dataloader
-		n_batches = int(self.num_training_sentences/self.batch_size  + (self.num_training_sentences % self.batch_size > 0))
+		n_batches = int(self.num_training_sentences/self.batch_size +
+			(self.num_training_sentences % self.batch_size > 0))
 		batches = []
 		for i in range(n_batches):
 			i_start = i * self.batch_size
@@ -386,7 +401,7 @@ class Dataset(object):
 				'acous_lengths':train_acous_lengths[i_start:i_end]
 			}
 			batches.append(batch)
-		
+
 		# pt dataloader
 		params = {'batch_size': 1,
 					'shuffle': is_train,
@@ -407,7 +422,8 @@ class Dataset(object):
 		acouslen = [item[3] for item in batch]
 
 		srcid = torch.nn.utils.rnn.pad_sequence(srcid, batch_first=True) # b x l
-		acous_feat = torch.nn.utils.rnn.pad_sequence(acous_feat, batch_first=True) # b x l x 40
+		acous_feat = torch.nn.utils.rnn.pad_sequence(acous_feat, batch_first=True)
+					# b x l x 40
 
 		return [srcid, srclen, acous_feat, acouslen]
 
@@ -427,7 +443,7 @@ def load_pretrained_embedding(word2id, embedding_matrix, embedding_path):
 				id = word2id[word]
 				vector = np.array(items[1:])
 				embedding_matrix[id] = vector
-				counter += 1	
+				counter += 1
 
 	print('loaded pre-trained embedding:', embedding_path)
 	print('embedding vectors found:', counter)
@@ -445,20 +461,3 @@ def load_pretrained_embedding_bpe(embedding_matrix):
 	print('embedding vectors count:', embedding_matrix.shape[0])
 
 	return embedding_matrix
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

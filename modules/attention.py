@@ -10,12 +10,13 @@ class AttentionLayer(nn.Module):
 
 	def __init__(self, query_size, key_size, value_size=None, mode='bahdanau',
 				 dropout=0.0, batch_first=True, bias=True,
-				 query_transform=False, output_transform=False, 
+				 query_transform=False, output_transform=False,
 				 output_nonlinearity='tanh', output_size=None,
 				 hidden_size=1, use_gpu=False, hard_att=False):
-		
+
 		super(AttentionLayer, self).__init__()
-		assert mode == 'bahdanau' or mode == 'dot_prod' or mode == 'hybrid' or mode == 'bilinear'
+		assert mode == 'bahdanau' or mode == 'dot_prod' \
+			or mode == 'hybrid' or mode == 'bilinear'
 
 		"""
 			query index: i
@@ -24,7 +25,7 @@ class AttentionLayer(nn.Module):
 			bahdanau:
 				att_ij = w * tanh(U * s_(i-1) + V * h_j + b)
 				hidden_size: dim0 of U,V
-			hybrid: 
+			hybrid:
 				take into account both content and location
 				att_ij = a * exp[-b * (c-j)^2]
 				a,b: variance
@@ -43,31 +44,41 @@ class AttentionLayer(nn.Module):
 		self.hidden_size = hidden_size
 		self.use_gpu = use_gpu
 		self.hard_att = hard_att
-		
+
 		# define opertations
 		if mode == 'bahdanau':
-			self.linear_att_q = nn.Linear(self.query_size, self.hidden_size, bias=bias)
-			self.linear_att_k = nn.Linear(self.key_size, self.hidden_size, bias=bias)
+			self.linear_att_q = nn.Linear(self.query_size, self.hidden_size,
+				bias=bias)
+			self.linear_att_k = nn.Linear(self.key_size, self.hidden_size,
+				bias=bias)
 			self.linear_att_o = nn.Linear(self.hidden_size, 1, bias=bias)
 
 		elif mode == 'hybrid':
-			self.linear_att_aq = nn.Linear(self.query_size, self.hidden_size, bias=bias)
-			self.linear_att_ak = nn.Linear(self.key_size, self.hidden_size, bias=bias) 
+			self.linear_att_aq = nn.Linear(self.query_size, self.hidden_size,
+				bias=bias)
+			self.linear_att_ak = nn.Linear(self.key_size, self.hidden_size,
+				bias=bias)
 			self.linear_att_ao = nn.Linear(self.hidden_size, 1, bias=bias)
-			self.linear_att_bq = nn.Linear(self.query_size, self.hidden_size, bias=bias)
-			self.linear_att_bk = nn.Linear(self.key_size, self.hidden_size, bias=bias) 
+			self.linear_att_bq = nn.Linear(self.query_size, self.hidden_size,
+				bias=bias)
+			self.linear_att_bk = nn.Linear(self.key_size, self.hidden_size,
+				bias=bias)
 			self.linear_att_bo = nn.Linear(self.hidden_size, 1, bias=bias)
-			self.linear_att_cq = nn.Linear(self.query_size, self.hidden_size, bias=bias)
-			self.linear_att_ck = nn.Linear(self.key_size, self.hidden_size, bias=bias) 
+			self.linear_att_cq = nn.Linear(self.query_size, self.hidden_size,
+				bias=bias)
+			self.linear_att_ck = nn.Linear(self.key_size, self.hidden_size,
+				bias=bias)
 			self.linear_att_co = nn.Linear(self.hidden_size, 1, bias=bias)
 
 		elif mode == 'bilinear':
 			# ignore self.hidden_size if mode=bilinear
-			self.linear_att_w = nn.Linear(self.key_size, self.query_size, bias=False)
+			self.linear_att_w = nn.Linear(self.key_size, self.query_size,
+				bias=False)
 
 		if output_transform:
 			output_size = output_size or query_size
-			self.linear_out = nn.Linear(query_size + value_size, output_size, bias=False)
+			self.linear_out = nn.Linear(query_size + value_size, output_size,
+				bias=False)
 			self.output_size = output_size
 		else:
 			self.output_size = value_size
@@ -131,42 +142,58 @@ class AttentionLayer(nn.Module):
 			if not hasattr(self, 'linear_att_ao'): # to word with old att setup
 				self.hidden_size = 1 # fix
 
-				a_wq = self.linear_att_aq(att_query).view(b, t_q, t_k, self.hidden_size)
-				a_uk = self.linear_att_ak(att_keys).view(b, t_q, t_k, self.hidden_size)
+				a_wq = self.linear_att_aq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				a_uk = self.linear_att_ak(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				a_sum_qk = a_wq + a_uk
 				a_out = torch.exp(torch.tanh(a_sum_qk)).view(b, t_q, t_k)
-				
-				b_wq = self.linear_att_bq(att_query).view(b, t_q, t_k, self.hidden_size)
-				b_uk = self.linear_att_bk(att_keys).view(b, t_q, t_k, self.hidden_size)
+
+				b_wq = self.linear_att_bq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				b_uk = self.linear_att_bk(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				b_sum_qk = b_wq + b_uk
 				b_out = torch.exp(torch.tanh(b_sum_qk)).view(b, t_q, t_k)
-				
-				c_wq = self.linear_att_cq(att_query).view(b, t_q, t_k, self.hidden_size)
-				c_uk = self.linear_att_ck(att_keys).view(b, t_q, t_k, self.hidden_size)
+
+				c_wq = self.linear_att_cq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				c_uk = self.linear_att_ck(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				c_sum_qk = c_wq + c_uk
 				c_out = torch.exp(torch.tanh(c_sum_qk)).view(b, t_q, t_k)
 
 			else: # new setup by default
-				a_wq = self.linear_att_aq(att_query).view(b, t_q, t_k, self.hidden_size)
-				a_uk = self.linear_att_ak(att_keys).view(b, t_q, t_k, self.hidden_size)
+				a_wq = self.linear_att_aq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				a_uk = self.linear_att_ak(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				a_sum_qk = a_wq + a_uk
-				a_out = torch.exp(self.linear_att_ao(torch.tanh(a_sum_qk))).view(b, t_q, t_k)
-				
-				b_wq = self.linear_att_bq(att_query).view(b, t_q, t_k, self.hidden_size)
-				b_uk = self.linear_att_bk(att_keys).view(b, t_q, t_k, self.hidden_size)
+				a_out = torch.exp(self.linear_att_ao(torch.tanh(a_sum_qk)))
+					.view(b, t_q, t_k)
+
+				b_wq = self.linear_att_bq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				b_uk = self.linear_att_bk(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				b_sum_qk = b_wq + b_uk
-				b_out = torch.exp(self.linear_att_bo(torch.tanh(b_sum_qk))).view(b, t_q, t_k)
-				
-				c_wq = self.linear_att_cq(att_query).view(b, t_q, t_k, self.hidden_size)
-				c_uk = self.linear_att_ck(att_keys).view(b, t_q, t_k, self.hidden_size)
+				b_out = torch.exp(self.linear_att_bo(torch.tanh(b_sum_qk)))
+					.view(b, t_q, t_k)
+
+				c_wq = self.linear_att_cq(att_query)
+					.view(b, t_q, t_k, self.hidden_size)
+				c_uk = self.linear_att_ck(att_keys)
+					.view(b, t_q, t_k, self.hidden_size)
 				c_sum_qk = c_wq + c_uk
-				c_out = torch.exp(self.linear_att_co(torch.tanh(c_sum_qk))).view(b, t_q, t_k)
+				c_out = torch.exp(self.linear_att_co(torch.tanh(c_sum_qk)))
+					.view(b, t_q, t_k)
 
 			# print(time.time() - start_time)
 
 			if t_q != 1:
 				# teacher forcing mode - t_q != 1
-				key_indices = torch.arange(t_k).repeat(b, t_q).view(b, t_q, t_k).type(torch.FloatTensor)
+				key_indices = torch.arange(t_k).repeat(b, t_q)
+					.view(b, t_q, t_k).type(torch.FloatTensor)
 				c_curr = torch.FloatTensor([0]).repeat(b, t_q, t_k)
 				if self.use_gpu and torch.cuda.is_available():
 					key_indices = key_indices.cuda()
@@ -181,7 +208,8 @@ class AttentionLayer(nn.Module):
 
 			else:
 				# infernece mode: t_q = 1
-				key_indices = torch.arange(t_k).repeat(b, 1).view(b, 1, t_k).type(torch.FloatTensor)
+				key_indices = torch.arange(t_k)
+					.repeat(b, 1).view(b, 1, t_k).type(torch.FloatTensor)
 				if self.use_gpu and torch.cuda.is_available():
 					key_indices = key_indices.cuda()
 
@@ -207,7 +235,7 @@ class AttentionLayer(nn.Module):
 
 		"""
 			query(out):	b x t_q x n_q
-			keys(in): 	b x t_k x n_k (usually: n_k >= n_v - keys are richer) 
+			keys(in): 	b x t_k x n_k (usually: n_k >= n_v - keys are richer)
 			vals(in): 	b x t_k x n_v
 			context:	b x t_q x output_size
 			scores: 	b x t_q x t_k
@@ -227,7 +255,7 @@ class AttentionLayer(nn.Module):
 				values = values.transpose(0, 1)
 			if query.dim() == 3:
 				query = query.transpose(0, 1)
-		
+
 		if query.dim() == 2:
 			single_query = True
 			query = query.unsqueeze(1)
@@ -257,7 +285,8 @@ class AttentionLayer(nn.Module):
 			if self.hard_att:
 				top_idx = torch.argmax(scores, dim=2)
 				scores_view = scores.view(-1, t_k)
-				scores_hard = (scores_view == scores_view.max(dim=1, keepdim=True)[0]).view_as(scores)
+				scores_hard = (scores_view == scores_view.max(dim=1, keepdim=True)[0])
+					.view_as(scores)
 				scores_hard = scores_hard.type(torch.FloatTensor)
 				total_score = torch.sum(scores_hard, dim=2)
 				total_score = total_score.view(b,t_q,1).repeat(1,1,t_k).view_as(scores)
@@ -289,5 +318,3 @@ class AttentionLayer(nn.Module):
 			scores_normalized = scores_normalized.transpose(0, 1)
 
 		return context, scores_normalized, c_out
-
-
