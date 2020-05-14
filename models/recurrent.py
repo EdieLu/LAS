@@ -298,7 +298,7 @@ class LAS(nn.Module):
 				.reshape(batch_size, acous_len, acous_outputs_l1.size(-1))
 			if self.batch_norm:
 				acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1))
-				.permute(0, 2, 1)
+					.permute(0, 2, 1)
 			acous_inputs_l2 = acous_outputs_l1
 				.reshape(batch_size, int(acous_len/2), 2*acous_outputs_l1.size(-1))
 				# b x acous_len/2 x 4dim
@@ -309,7 +309,7 @@ class LAS(nn.Module):
 				.reshape(batch_size, int(acous_len/2), acous_outputs_l2.size(-1))
 			if self.batch_norm:
 				acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1))
-				.permute(0, 2, 1)
+					.permute(0, 2, 1)
 			acous_inputs_l3 = acous_outputs_l2
 				.reshape(batch_size, int(acous_len/4), 2*acous_outputs_l2.size(-1))
 				# b x acous_len/4 x 4dim
@@ -320,7 +320,7 @@ class LAS(nn.Module):
 				.reshape(batch_size, int(acous_len/4), acous_outputs_l3.size(-1))
 			if self.batch_norm:
 				acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1))
-				.permute(0, 2, 1)
+					.permute(0, 2, 1)
 			acous_inputs_l4 = acous_outputs_l3
 				.reshape(batch_size, int(acous_len/8), 2*acous_outputs_l3.size(-1))
 				# b x acous_len/8 x 4dim
@@ -331,7 +331,7 @@ class LAS(nn.Module):
 				.reshape(batch_size, int(acous_len/8), acous_outputs_l4.size(-1))
 			if self.batch_norm:
 				acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1))
-				.permute(0, 2, 1)
+					.permute(0, 2, 1)
 			acous_outputs = acous_outputs_l4
 
 		elif self.enc_mode == 'cnn':
