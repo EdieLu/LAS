@@ -142,57 +142,57 @@ class AttentionLayer(nn.Module):
 			if not hasattr(self, 'linear_att_ao'): # to word with old att setup
 				self.hidden_size = 1 # fix
 
-				a_wq = self.linear_att_aq(att_query)
+				a_wq = self.linear_att_aq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				a_uk = self.linear_att_ak(att_keys)
+				a_uk = self.linear_att_ak(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				a_sum_qk = a_wq + a_uk
 				a_out = torch.exp(torch.tanh(a_sum_qk)).view(b, t_q, t_k)
 
-				b_wq = self.linear_att_bq(att_query)
+				b_wq = self.linear_att_bq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				b_uk = self.linear_att_bk(att_keys)
+				b_uk = self.linear_att_bk(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				b_sum_qk = b_wq + b_uk
 				b_out = torch.exp(torch.tanh(b_sum_qk)).view(b, t_q, t_k)
 
-				c_wq = self.linear_att_cq(att_query)
+				c_wq = self.linear_att_cq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				c_uk = self.linear_att_ck(att_keys)
+				c_uk = self.linear_att_ck(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				c_sum_qk = c_wq + c_uk
 				c_out = torch.exp(torch.tanh(c_sum_qk)).view(b, t_q, t_k)
 
 			else: # new setup by default
-				a_wq = self.linear_att_aq(att_query)
+				a_wq = self.linear_att_aq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				a_uk = self.linear_att_ak(att_keys)
+				a_uk = self.linear_att_ak(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				a_sum_qk = a_wq + a_uk
-				a_out = torch.exp(self.linear_att_ao(torch.tanh(a_sum_qk)))
+				a_out = torch.exp(self.linear_att_ao(torch.tanh(a_sum_qk)))\
 					.view(b, t_q, t_k)
 
-				b_wq = self.linear_att_bq(att_query)
+				b_wq = self.linear_att_bq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				b_uk = self.linear_att_bk(att_keys)
+				b_uk = self.linear_att_bk(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				b_sum_qk = b_wq + b_uk
-				b_out = torch.exp(self.linear_att_bo(torch.tanh(b_sum_qk)))
+				b_out = torch.exp(self.linear_att_bo(torch.tanh(b_sum_qk)))\
 					.view(b, t_q, t_k)
 
-				c_wq = self.linear_att_cq(att_query)
+				c_wq = self.linear_att_cq(att_query)\
 					.view(b, t_q, t_k, self.hidden_size)
-				c_uk = self.linear_att_ck(att_keys)
+				c_uk = self.linear_att_ck(att_keys)\
 					.view(b, t_q, t_k, self.hidden_size)
 				c_sum_qk = c_wq + c_uk
-				c_out = torch.exp(self.linear_att_co(torch.tanh(c_sum_qk)))
+				c_out = torch.exp(self.linear_att_co(torch.tanh(c_sum_qk)))\
 					.view(b, t_q, t_k)
 
 			# print(time.time() - start_time)
 
 			if t_q != 1:
 				# teacher forcing mode - t_q != 1
-				key_indices = torch.arange(t_k).repeat(b, t_q)
+				key_indices = torch.arange(t_k).repeat(b, t_q)\
 					.view(b, t_q, t_k).type(torch.FloatTensor)
 				c_curr = torch.FloatTensor([0]).repeat(b, t_q, t_k)
 				if self.use_gpu and torch.cuda.is_available():
@@ -208,7 +208,7 @@ class AttentionLayer(nn.Module):
 
 			else:
 				# infernece mode: t_q = 1
-				key_indices = torch.arange(t_k)
+				key_indices = torch.arange(t_k)\
 					.repeat(b, 1).view(b, 1, t_k).type(torch.FloatTensor)
 				if self.use_gpu and torch.cuda.is_available():
 					key_indices = key_indices.cuda()
@@ -285,7 +285,7 @@ class AttentionLayer(nn.Module):
 			if self.hard_att:
 				top_idx = torch.argmax(scores, dim=2)
 				scores_view = scores.view(-1, t_k)
-				scores_hard = (scores_view == scores_view.max(dim=1, keepdim=True)[0])
+				scores_hard = (scores_view == scores_view.max(dim=1, keepdim=True)[0])\
 					.view_as(scores)
 				scores_hard = scores_hard.type(torch.FloatTensor)
 				total_score = torch.sum(scores_hard, dim=2)

@@ -63,7 +63,7 @@ def load_arguments(parser):
 	parser.add_argument('--num_unilstm_dec', type=int, default=2, help='number of encoder bilstm layers')
 
 	# train
-	parser.add_argument('--random_seed', type=int, default=666, help='random seed')
+	parser.add_argument('--random_seed', type=int, default=333, help='random seed')
 	parser.add_argument('--max_seq_len', type=int, default=32, help='maximum sequence length')
 	parser.add_argument('--batch_size', type=int, default=64, help='batch size')
 	parser.add_argument('--embedding_dropout', type=float, default=0.0, help='embedding dropout')
@@ -193,13 +193,14 @@ class Trainer(object):
 					las_loss.eval_batch_with_mask(logps.reshape(-1, logps.size(-1)),
 						src_ids.reshape(-1), non_padding_mask_src.reshape(-1))
 					las_loss.norm_term = torch.sum(non_padding_mask_src)
+					las_loss.normalise()
 					las_resloss += las_loss.get_loss()
 					las_resloss_norm += 1
 
 					# las accuracy
 					seqlist = ret_dict['sequence']
 					seqres = torch.stack(seqlist, dim=1).to(device=device)
-					correct = seqres.view(-1).eq(src_ids.reshape(-1))
+					correct = seqres.view(-1).eq(src_ids.reshape(-1))\
 						.masked_select(non_padding_mask_src.reshape(-1)).sum().item()
 					las_match += correct
 					las_total += non_padding_mask_src.sum().item()
@@ -227,7 +228,7 @@ class Trainer(object):
 
 
 	def _train_batch(self,
-		odel, batch_items, dataset, step, total_steps, src_labs=None):
+		model, batch_items, dataset, step, total_steps, src_labs=None):
 
 		# -- DEBUG --
 		# import pdb; pdb.set_trace()
@@ -302,6 +303,7 @@ class Trainer(object):
 
 			# import pdb; pdb.set_trace()
 			# Backward propagation: accumulate gradient
+			las_loss.normalise()
 			las_loss.acc_loss /= n_minibatch
 			las_loss.backward()
 			las_resloss += las_loss.get_loss()
@@ -383,7 +385,7 @@ class Trainer(object):
 				if step % self.print_every == 0 and step_elapsed > self.print_every:
 					las_print_loss_avg = las_print_loss_total / self.print_every
 					las_print_loss_total = 0
-					log_msg = 'Progress: %d%%, Train las: %.4f'
+					log_msg = 'Progress: %d%%, Train las: %.4f'\
 						% (step / total_steps * 100, las_print_loss_avg)
 					log.info(log_msg)
 					self.writer.add_scalar('train_las_loss',
@@ -397,7 +399,7 @@ class Trainer(object):
 						dev_accs, dev_losses =  self._evaluate_batches(model, dev_set)
 						las_loss = dev_losses['las_loss']
 						las_acc = dev_accs['las_acc']
-						log_msg = 'Progress: %d%%, Dev las loss: %.4f, accuracy: %.4f'
+						log_msg = 'Progress: %d%%, Dev las loss: %.4f, accuracy: %.4f'\
 							% (step / total_steps * 100, las_loss, las_acc)
 						log.info(log_msg)
 						self.writer.add_scalar('dev_las_loss', las_loss, global_step=step)
@@ -425,7 +427,7 @@ class Trainer(object):
 						# roll back
 						if count_no_improve > MAX_COUNT_NO_IMPROVE:
 							# resuming
-							latest_checkpoint_path = Checkpoint
+							latest_checkpoint_path = Checkpoint\
 								.get_latest_checkpoint(self.expt_dir)
 							if type(latest_checkpoint_path) != type(None):
 								resume_checkpoint = Checkpoint.load(latest_checkpoint_path)
@@ -438,7 +440,7 @@ class Trainer(object):
 								defaults = resume_optim.param_groups[0]
 								defaults.pop('params', None)
 								defaults.pop('initial_lr', None)
-								self.optimizer.optimizer = resume_optim
+								self.optimizer.optimizer = resume_optim\
 									.__class__(model.parameters(), **defaults)
 								# start_epoch = resume_checkpoint.epoch
 								# step = resume_checkpoint.step
@@ -464,7 +466,7 @@ class Trainer(object):
 								defaults = resume_optim.param_groups[0]
 								defaults.pop('params', None)
 								defaults.pop('initial_lr', None)
-								self.optimizer.optimizer = resume_optim
+								self.optimizer.optimizer = resume_optim\
 									.__class__(model.parameters(), **defaults)
 								start_epoch = resume_checkpoint.epoch
 								step = resume_checkpoint.step
@@ -624,8 +626,8 @@ def main():
 	train_acous_path = config['train_acous_path']
 	train_set = Dataset(train_path_src, train_path_tgt,
 		path_vocab_src, path_vocab_tgt, use_type=config['use_type'],
-		tsv_path=train_tsv_path, acous_path=train_acous_path, s
-		eqrev=config['seqrev'], acous_norm=config['acous_norm'],
+		tsv_path=train_tsv_path, acous_path=train_acous_path,
+		seqrev=config['seqrev'], acous_norm=config['acous_norm'],
 		max_seq_len=config['max_seq_len'], batch_size=config['batch_size'],
 		use_gpu=config['use_gpu'])
 

@@ -2,14 +2,13 @@
 #$ -S /bin/bash
 
 echo $HOSTNAME
-unset LD_PRELOAD # when run on the stack it has /usr/local/grid/agile/admin/cudadevice.so which will give core dumped
 export PATH=/home/mifs/ytl28/anaconda3/bin/:$PATH
 
-# export CUDA_VISIBLE_DEVICES=0
-export CUDA_VISIBLE_DEVICES=$X_SGE_CUDA_DEVICE
+export CUDA_VISIBLE_DEVICES=3
+# export CUDA_VISIBLE_DEVICES=$X_SGE_CUDA_DEVICE
 echo $CUDA_VISIBLE_DEVICES
 
-# python 3.6 
+# python 3.6
 # pytorch 1.1
 source activate py13-cuda9
 
@@ -18,10 +17,10 @@ max_seq_len=90 # 400 for char | 90 for  word | 110 for bpe
 batch_size=256
 minibatch_partition=40
 
-# print_every=1
-# checkpoint_every=2
-print_every=150
-checkpoint_every=900
+print_every=1
+checkpoint_every=5
+# print_every=150
+# checkpoint_every=900
 num_epochs=100
 learning_rate=0.001
 
@@ -29,7 +28,7 @@ random_seed=25
 eval_with_mask=True
 savedir=acous-las-models-v3/debug/
 loaddir=None
-# loaddir=acous-las-models-v3/las-word-v002-cont/checkpoints/2020_04_17_01_56_38/ 
+# loaddir=acous-las-models-v3/las-word-v002-cont/checkpoints/2020_04_17_01_56_38/
 
 # ------------------------ file dir --------------------------
 # use_type=char # char | word | bpe
@@ -46,17 +45,10 @@ loaddir=None
 # load_embedding=None
 # embedding_size=200
 
-# use_type=word # word
-# train_path_src=lib-bpe/swbd-asr/train/text.proc
-# dev_path_src=lib-bpe/swbd-asr/valid/text.proc
-# path_vocab=lib/vocab/swbd-min1.en
-# load_embedding=lib/embeddings/glove.6B.200d.txt
-# embedding_size=200
-
-use_type=word # word-v2
-train_path_src=lib-bpe/swbd-asr/train/text.proc.split
-dev_path_src=lib-bpe/swbd-asr/valid/text.proc.split
-path_vocab=lib-bpe/vocab/swbdasr-min1.en
+use_type=word # word
+train_path_src=lib-bpe/swbd-asr/train/text.proc
+dev_path_src=lib-bpe/swbd-asr/valid/text.proc
+path_vocab=lib/vocab/swbd-min1.en
 load_embedding=lib/embeddings/glove.6B.200d.txt
 embedding_size=200
 
@@ -116,4 +108,4 @@ $PYTHONBIN /home/alta/BLTSpeaking/exp-ytl28/local-ytl/acous-las-v3/train.py \
 	--print_every $print_every \
 	--minibatch_partition $minibatch_partition \
 
-	# bahdanau / hybrid	
+	# bahdanau / hybrid

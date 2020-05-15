@@ -274,8 +274,8 @@ class LAS(nn.Module):
 		batch_size = acous_feats.size(0)
 
 		if type(tgt) == type(None):
-			tgt = torch.Tensor([BOS]).repeat(batch_size, self.max_seq_len)
-										.type(torch.LongTensor).to(device=device)
+			tgt = torch.Tensor([BOS]).repeat(
+				batch_size, self.max_seq_len).type(torch.LongTensor).to(device=device)
 
 		max_seq_len = tgt.size(1)
 		lengths = np.array([max_seq_len] * batch_size)
@@ -294,48 +294,48 @@ class LAS(nn.Module):
 			# layer1
 			acous_outputs_l1, acous_hidden_l1 = self.acous_enc_l1(
 				acous_feats, acous_hidden_init) # b x acous_len x 2dim
-			acous_outputs_l1 = self.dropout(acous_outputs_l1)
+			acous_outputs_l1 = self.dropout(acous_outputs_l1)\
 				.reshape(batch_size, acous_len, acous_outputs_l1.size(-1))
 			if self.batch_norm:
-				acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1))
+				acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1))\
 					.permute(0, 2, 1)
-			acous_inputs_l2 = acous_outputs_l1
+			acous_inputs_l2 = acous_outputs_l1\
 				.reshape(batch_size, int(acous_len/2), 2*acous_outputs_l1.size(-1))
 				# b x acous_len/2 x 4dim
 			# layer2
 			acous_outputs_l2, acous_hidden_l2 = self.acous_enc_l2(
 				acous_inputs_l2, acous_hidden_init) # b x acous_len/2 x 2dim
-			acous_outputs_l2 = self.dropout(acous_outputs_l2)
+			acous_outputs_l2 = self.dropout(acous_outputs_l2)\
 				.reshape(batch_size, int(acous_len/2), acous_outputs_l2.size(-1))
 			if self.batch_norm:
-				acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1))
+				acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1))\
 					.permute(0, 2, 1)
-			acous_inputs_l3 = acous_outputs_l2
+			acous_inputs_l3 = acous_outputs_l2\
 				.reshape(batch_size, int(acous_len/4), 2*acous_outputs_l2.size(-1))
 				# b x acous_len/4 x 4dim
 			# layer3
 			acous_outputs_l3, acous_hidden_l3 = self.acous_enc_l3(
 				acous_inputs_l3, acous_hidden_init) # b x acous_len/4 x 2dim
-			acous_outputs_l3 = self.dropout(acous_outputs_l3)
+			acous_outputs_l3 = self.dropout(acous_outputs_l3)\
 				.reshape(batch_size, int(acous_len/4), acous_outputs_l3.size(-1))
 			if self.batch_norm:
-				acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1))
+				acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1))\
 					.permute(0, 2, 1)
-			acous_inputs_l4 = acous_outputs_l3
+			acous_inputs_l4 = acous_outputs_l3\
 				.reshape(batch_size, int(acous_len/8), 2*acous_outputs_l3.size(-1))
 				# b x acous_len/8 x 4dim
 			# layer4
-			acous_outputs_l4, acous_hidden_l4 = self.acous_enc_l4
+			acous_outputs_l4, acous_hidden_l4 = self.acous_enc_l4(
 				acous_inputs_l4, acous_hidden_init) # b x acous_len/8 x 2dim
-			acous_outputs_l4 = self.dropout(acous_outputs_l4)
+			acous_outputs_l4 = self.dropout(acous_outputs_l4)\
 				.reshape(batch_size, int(acous_len/8), acous_outputs_l4.size(-1))
 			if self.batch_norm:
-				acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1))
+				acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1))\
 					.permute(0, 2, 1)
 			acous_outputs = acous_outputs_l4
 
 		elif self.enc_mode == 'cnn':
-			pass # TODO
+			pass #todo
 
 		# 3. ---- run dec + att + shared + output ----
 		"""
@@ -360,7 +360,7 @@ class LAS(nn.Module):
 		# no beam search decoding
 		tgt_chunk = self.embedder(torch.Tensor([BOS])
 			.repeat(batch_size,1).type(torch.LongTensor).to(device=device)) # BOS
-		cell_value = torch.FloatTensor([0])
+		cell_value = torch.FloatTensor([0])\
 			.repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
 		prev_c = torch.FloatTensor([0]).repeat(batch_size, 1, max_seq_len).to(device=device)
 		attn_outputs = []
@@ -446,7 +446,7 @@ class LAS(nn.Module):
 		# record sizes
 		batch_size = tgt_chunk.size(0)
 		tgt_chunk_etd = torch.cat([tgt_chunk, prev_cell_value], -1)
-		tgt_chunk_etd = tgt_chunk_etd
+		tgt_chunk_etd = tgt_chunk_etd\
 			.view(-1, 1, self.embedding_size + self.hidden_size_shared)
 
 		# run dec
@@ -552,16 +552,16 @@ class LAS(nn.Module):
 
 		# define var
 		batch_size = att_keys.size(0)
-		self.pos_index = Variable(torch.LongTensor(range(batch_size)) * beam_width)
+		self.pos_index = Variable(torch.LongTensor(range(batch_size)) * beam_width)\
 			.view(-1, 1).to(device=device)
 
 		# initialize the input vector; att_c_value
 		input_var = Variable(torch.transpose(
 			torch.LongTensor([[BOS] * batch_size * beam_width]), 0, 1)).to(device=device)
 		input_var_emb = self.embedder_dec(input_var).to(device=device)
-		prev_c = torch.FloatTensor([0])
+		prev_c = torch.FloatTensor([0])\
 			.repeat(batch_size, 1, self.max_seq_len).to(device=device)
-		cell_value = torch.FloatTensor([0])
+		cell_value = torch.FloatTensor([0])\
 			.repeat(batch_size, 1, self.hidden_size_shared).to(device=device)
 
 		# inflate attention keys and values (derived from encoder outputs)
@@ -581,7 +581,7 @@ class LAS(nn.Module):
 		sequence_scores = torch.Tensor(batch_size * beam_width, 1).to(device=device)
 		sequence_scores.fill_(-float('Inf'))
 		sequence_scores.index_fill_(0,
-			torch.LongTensor([i * beam_width for i in range(0, batch_size)])
+			torch.LongTensor([i * beam_width for i in range(0, batch_size)])\
 			.to(device=device), 0.0)
 		sequence_scores = Variable(sequence_scores)
 
@@ -609,17 +609,17 @@ class LAS(nn.Module):
 			sequence_scores += predicted_softmax.squeeze(1) # [bk x v]
 
 			# [b x kv] -> [b x k]
-			scores, candidates = sequence_scores.view(batch_size, -1)
+			scores, candidates = sequence_scores.view(batch_size, -1)\
 				.topk(beam_width, dim=1)
 
 			# Reshape input = (bk, 1) and sequence_scores = (bk, 1)
-			input_var = (candidates % self.vocab_size).view(batch_size * beam_width, 1)
+			input_var = (candidates % self.vocab_size).view(batch_size * beam_width, 1)\
 				.to(device=device)
 			input_var_emb = self.embedder_dec(input_var)
 			sequence_scores = scores.view(batch_size * beam_width, 1) #[bk x 1]
 
 			# Update fields for next timestep
-			predecessors = (candidates / self.vocab_size + self.pos_index
+			predecessors = (candidates / self.vocab_size + self.pos_index\
 				.expand_as(candidates)).view(batch_size * beam_width, 1)
 
 			# dec_hidden: [h_0, c_0];
@@ -736,7 +736,7 @@ class LAS(nn.Module):
 		t = self.max_seq_len - 1
 		# initialize the back pointer with the sorted order of the last step beams.
 		# add self.pos_index for indexing variable with b*k as the first dimension.
-		t_predecessors = (sorted_idx + self.pos_index.expand_as(sorted_idx))
+		t_predecessors = (sorted_idx + self.pos_index.expand_as(sorted_idx))\
 			.view(b * beam_width).to(device=device)
 
 		while t >= 0:
@@ -751,7 +751,7 @@ class LAS(nn.Module):
 
 			# Re-order the back pointer of the previous step with the back pointer of
 			# the current step
-			t_predecessors = predecessors[t]
+			t_predecessors = predecessors[t]\
 				.index_select(0, t_predecessors).squeeze().to(device=device)
 
 			"""
@@ -792,18 +792,18 @@ class LAS(nn.Module):
 					t_predecessors[res_idx] = predecessors[t][idx[0]].to(device=device)
 					current_output[res_idx, :] = nw_output[t][idx[0], :].to(device=device)
 					if lstm:
-						current_hidden[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :]
+						current_hidden[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :]\
 							.to(device=device)
-						current_hidden[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :]
+						current_hidden[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :]\
 							.to(device=device)
-						h_n[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :].data
+						h_n[0][:, res_idx, :] = nw_hidden[t][0][:, idx[0], :].data\
 							.to(device=device)
-						h_n[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :].data
+						h_n[1][:, res_idx, :] = nw_hidden[t][1][:, idx[0], :].data\
 							.to(device=device)
 					else:
-						current_hidden[:, res_idx, :] = nw_hidden[t][:, idx[0], :]
+						current_hidden[:, res_idx, :] = nw_hidden[t][:, idx[0], :]\
 							.to(device=device)
-						h_n[:, res_idx, :] = nw_hidden[t][:, idx[0], :].data
+						h_n[:, res_idx, :] = nw_hidden[t][:, idx[0], :].data\
 							.to(device=device)
 					current_symbol[res_idx, :] = symbols[t][idx[0]].to(device=device)
 					s[b_idx, res_k_idx] = scores[t][idx[0]].data[0].to(device=device)
@@ -822,24 +822,24 @@ class LAS(nn.Module):
 		for b_idx in range(b):
 			l[b_idx] = [l[b_idx][k_idx.item()] for k_idx in re_sorted_idx[b_idx,:]]
 
-		re_sorted_idx = (re_sorted_idx + self.pos_index.expand_as(re_sorted_idx))
+		re_sorted_idx = (re_sorted_idx + self.pos_index.expand_as(re_sorted_idx))\
 			.view(b * beam_width).to(device=device)
 
 		# Reverse the sequences and re-order at the same time
 		# It is reversed because the backtracking happens in reverse time order
-		output = [step.index_select(0, re_sorted_idx).
-			view(b, beam_width, -1) for step in reversed(output)]
-		p = [step.index_select(0, re_sorted_idx)
+		output = [step.index_select(0, re_sorted_idx)\
+			.view(b, beam_width, -1) for step in reversed(output)]
+		p = [step.index_select(0, re_sorted_idx)\
 			.view(b, beam_width, -1) for step in reversed(p)]
 		if lstm:
-			h_t = [tuple([h.index_select(1, re_sorted_idx.to(device=device))
+			h_t = [tuple([h.index_select(1, re_sorted_idx.to(device=device))\
 				.view(-1, b, beam_width, hidden_size) for h in step]) for step in reversed(h_t)]
-			h_n = tuple([h.index_select(1, re_sorted_idx.data.to(device=device))
+			h_n = tuple([h.index_select(1, re_sorted_idx.data.to(device=device))\
 				.view(-1, b, beam_width, hidden_size) for h in h_n])
 		else:
-			h_t = [step.index_select(1, re_sorted_idx.to(device=device))
+			h_t = [step.index_select(1, re_sorted_idx.to(device=device))\
 				.view(-1, b, beam_width, hidden_size) for step in reversed(h_t)]
-			h_n = h_n.index_select(1, re_sorted_idx.data.to(device=device))
+			h_n = h_n.index_select(1, re_sorted_idx.data.to(device=device))\
 				.view(-1, b, beam_width, hidden_size)
 		s = s.data
 

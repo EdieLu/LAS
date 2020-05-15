@@ -78,6 +78,9 @@ class Loss(object):
 			raise ValueError("No loss to back propagate.")
 		self.acc_loss.backward(retain_graph=retain_graph)
 
+	def normalise(self):
+		self.acc_loss /= self.norm_term
+
 	def mul(self, coeff):
 		self.acc_loss *= coeff
 
@@ -118,7 +121,6 @@ class NLLLoss(Loss):
 			return 0
 		# total loss for all batches
 		loss = self.acc_loss.data.detach().item()
-		loss /= self.norm_term
 		return loss
 
 	def eval_batch(self, outputs, target):
@@ -154,7 +156,6 @@ class BCELoss(Loss):
 			return 0
 		# total loss for all batches
 		loss = self.acc_loss.data.detach().item()
-		loss /= self.norm_term
 		return loss
 
 	def eval_batch(self, outputs, target):
@@ -190,7 +191,6 @@ class CrossEntropyLoss(Loss):
 			return 0
 		# total loss for all batches
 		loss = self.acc_loss.data.detach().item()
-		loss /= self.norm_term
 		return loss
 
 	def eval_batch(self, outputs, target):

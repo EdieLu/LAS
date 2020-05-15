@@ -62,11 +62,11 @@ class IterDataset(torch.utils.data.Dataset):
 		spkids = self.batches[index]['acous_spkids']
 		norm_param = []
 		mydict = {}
-		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/fbk_mu_std'
-		base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/eval2000/fbk_mu_std'
-			#only used for las evaluation
+		base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/fbk_mu_std'
+		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib-bpe/swbd-asr/prep/eval2000/fbk_mu_std'
+		#only used for las evaluation
 		# base = '/home/alta/BLTSpeaking/exp-ytl28/encdec/lib/add-acoustics/eval3/fbk_mu_std'
-			#for eval3
+		#for eval3
 
 		for idx in range(len(spkids)):
 			spkid = spkids[idx]
