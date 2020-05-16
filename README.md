@@ -4,7 +4,7 @@ Implementation of LAS 'Listen, Attend and Spell' W. Chan et.
 
 (w/o LM rescoring)
 
-## Libraries
+## Requirements
 
 python 3.6
 
