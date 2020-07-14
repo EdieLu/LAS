@@ -8,18 +8,18 @@ from torch.autograd import Variable
 
 from modules.attention import AttentionLayer
 from utils.config import PAD, EOS, BOS
-from utils.dataset import load_pretrained_embedding, load_pretrained_embedding_bpe
+from utils.dataset import load_pretrained_embedding
+from utils.misc import check_device
 
 import warnings
 warnings.filterwarnings("ignore")
 
-device = torch.device('cpu')
-
 KEY_ATTN_SCORE = 'attention_score'
+KEY_ATTN_OUT = 'attention_out'
 KEY_LENGTH = 'length'
 KEY_SEQUENCE = 'sequence'
 
-class LAS(nn.Module):
+class Dec(nn.Module):
 
 	""" listen attend spell model + dd tag """
 
@@ -32,11 +32,6 @@ class LAS(nn.Module):
 		hidden_size_dec=200,
 		hidden_size_shared=200,
 		num_unilstm_dec=4,
-		#
-		acous_norm=False,
-		spec_aug=False,
-		batch_norm=False,
-		enc_mode='pyramid',
 		use_type='char',
 		#
 		embedding_dropout=0,
@@ -48,19 +43,13 @@ class LAS(nn.Module):
 		word2id=None,
 		id2word=None,
 		hard_att=False,
-		use_gpu=False,
+		use_gpu=False
 		):
 
-		super(LAS, self).__init__()
-		# config device
-		if use_gpu and torch.cuda.is_available():
-			global device
-			device = torch.device('cuda')
-		else:
-			device = torch.device('cpu')
+		super(Dec, self).__init__()
+		device = check_device(use_gpu)
 
 		# define model
-		self.acous_dim = 40
 		self.acous_hidden_size = acous_hidden_size
 		self.acous_att_mode = acous_att_mode
 		self.hidden_size_dec = hidden_size_dec
@@ -71,12 +60,6 @@ class LAS(nn.Module):
 		self.hard_att = hard_att
 		self.residual = residual
 		self.max_seq_len = max_seq_len
-
-		# tuning
-		self.acous_norm = acous_norm
-		self.spec_aug = spec_aug
-		self.batch_norm = batch_norm
-		self.enc_mode = enc_mode
 		self.use_type = use_type
 
 		# use shared embedding + vocab
@@ -91,52 +74,16 @@ class LAS(nn.Module):
 		self.dropout = nn.Dropout(dropout)
 
 		# ------- load embeddings --------
-		if self.use_type == 'char' or self.use_type == 'word':
-			if self.load_embedding:
-				embedding_matrix = np.random.rand(self.vocab_size, self.embedding_size)
-				embedding_matrix = load_pretrained_embedding(
-					self.word2id,embedding_matrix,self.load_embedding)
-				embedding_matrix = torch.FloatTensor(embedding_matrix)
-				self.embedder = nn.Embedding.from_pretrained(embedding_matrix,
-					freeze=False, sparse=False,padding_idx=PAD)
-			else:
-				self.embedder = nn.Embedding(self.vocab_size, self.embedding_size,
-					sparse=False, padding_idx=PAD)
-		elif self.use_type == 'bpe':
-			# BPE
+		if self.load_embedding:
 			embedding_matrix = np.random.rand(self.vocab_size, self.embedding_size)
-			embedding_matrix = load_pretrained_embedding_bpe(embedding_matrix)
-			embedding_matrix = torch.FloatTensor(embedding_matrix).to(device=device)
+			embedding_matrix = load_pretrained_embedding(
+				self.word2id,embedding_matrix,self.load_embedding)
+			embedding_matrix = torch.FloatTensor(embedding_matrix)
 			self.embedder = nn.Embedding.from_pretrained(embedding_matrix,
-				freeze=False, sparse=False, padding_idx=PAD)
-
-		# ------ define acous enc -------
-		if self.enc_mode == 'pyramid':
-			self.acous_enc_l1 = torch.nn.LSTM(
-				self.acous_dim, self.acous_hidden_size,
-				num_layers=1, batch_first=batch_first,
-				bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l2 = torch.nn.LSTM(
-				self.acous_hidden_size * 4, self.acous_hidden_size,
-				num_layers=1, batch_first=batch_first,
-				bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l3 = torch.nn.LSTM(
-				self.acous_hidden_size * 4, self.acous_hidden_size,
-				num_layers=1, batch_first=batch_first,
-				bias=True, dropout=dropout, bidirectional=True)
-			self.acous_enc_l4 = torch.nn.LSTM(
-				self.acous_hidden_size * 4, self.acous_hidden_size,
-				num_layers=1, batch_first=batch_first,
-				bias=True, dropout=dropout, bidirectional=True)
-			if self.batch_norm:
-				self.bn1 = nn.BatchNorm1d(self.acous_hidden_size * 2)
-				self.bn2 = nn.BatchNorm1d(self.acous_hidden_size * 2)
-				self.bn3 = nn.BatchNorm1d(self.acous_hidden_size * 2)
-				self.bn4 = nn.BatchNorm1d(self.acous_hidden_size * 2)
-
-		elif self.enc_mode == 'cnn':
-			# TODO
-			pass
+				freeze=False, sparse=False,padding_idx=PAD)
+		else:
+			self.embedder = nn.Embedding(self.vocab_size, self.embedding_size,
+				sparse=False, padding_idx=PAD)
 
 		# ------ define acous att --------
 		dropout_acous_att = dropout
@@ -181,17 +128,6 @@ class LAS(nn.Module):
 					bias=True,dropout=dropout, bidirectional=False))
 
 
-	def reset_max_seq_len(self, max_seq_len):
-
-		self.max_seq_len = max_seq_len
-
-
-	def set_idmap(self, word2id, id2word):
-
-		self.word2id = word2id
-		self.id2word = id2word
-
-
 	def check_var(self, var_name, var_val_set=None):
 
 		""" to make old models capatible with added classvar in later versions """
@@ -201,45 +137,13 @@ class LAS(nn.Module):
 			setattr(self, var_name, var_val)
 
 
-	def pre_process_acous(self, acous_feats):
-
-		"""
-			acous_feats: b x max_time x max_channel
-			spec-aug i.e. mask out certain time / channel
-			time => t0 : t0 + t
-			channel => f0 : f0 + f
-		"""
-		self.check_var('spec_aug', False)
-		if not self.spec_aug:
-			return acous_feats
-		else:
-			max_time = acous_feats.size(1)
-			max_channel = 40
-
-			CONST_MAXT_RATIO = 0.2
-			CONST_T = int(min(40, CONST_MAXT_RATIO * max_time))
-			CONST_F = int(7)
-			REPEAT = 2
-
-			for idx in range(REPEAT):
-
-				t = random.randint(0, CONST_T)
-				f = random.randint(0, CONST_F)
-				t0 = random.randint(0, max_time-t-1)
-				f0 = random.randint(0, max_channel-f-1)
-
-				acous_feats[:,t0:t0+t,:] = 0
-				acous_feats[:,:,f0:f0+f] = 0
-
-			return acous_feats
-
-
-	def forward(self, acous_feats, tgt=None, hidden=None, is_training=False,
-				teacher_forcing_ratio=0.0, beam_width=1, use_gpu=False):
+	def forward(self, acous_outputs, acous_lens=None, tgt=None,
+		hidden=None, is_training=False, teacher_forcing_ratio=0.0,
+		beam_width=1, use_gpu=False):
 
 		"""
 			Args:
-				src: list of acoustic features 	[b x acous_len x 40]
+				enc_outputs: [batch_size, acous_len / 8, self.acous_hidden_size * 2]
 				tgt: list of word_ids 			[b x seq_len]
 				hidden: initial hidden state
 				is_training: whether in eval or train mode
@@ -251,27 +155,16 @@ class LAS(nn.Module):
 
 		# import pdb; pdb.set_trace()
 
-		if use_gpu and torch.cuda.is_available():
-			global device
-			device = torch.device('cuda')
-		else:
-			device = torch.device('cpu')
+		global device
+		device = check_device(use_gpu)
 
-		# if is_training:
-		# 	use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-		# else:
-		# 	use_teacher_forcing = False
-		use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-		# --- 0. init var ----
+		# 0. init var
 		ret_dict = dict()
 		ret_dict[KEY_ATTN_SCORE] = []
 
 		decoder_outputs = []
-		dec_hidden = None
-		mask = None
 		sequence_symbols = []
-		batch_size = acous_feats.size(0)
+		batch_size = acous_outputs.size(0)
 
 		if type(tgt) == type(None):
 			tgt = torch.Tensor([BOS]).repeat(
@@ -280,64 +173,28 @@ class LAS(nn.Module):
 		max_seq_len = tgt.size(1)
 		lengths = np.array([max_seq_len] * batch_size)
 
-		# ---- 1. convert id to embedding -----
+		# 1. convert id to embedding
 		emb_tgt = self.embedding_dropout(self.embedder(tgt))
-		if is_training: acous_feats = self.pre_process_acous(acous_feats)
 
-		# ---- 2. run acous enc - pyramidal ----
-		acous_len = acous_feats.size(1)
-		acous_hidden_init = None
+		# 2. att inputs: keys n values
+		att_keys = acous_outputs
+		att_vals = acous_outputs
 
-		self.check_var('enc_mode', 'pyramid')
-		self.check_var('batch_norm', False)
-		if self.enc_mode == 'pyramid':
-			# layer1
-			acous_outputs_l1, acous_hidden_l1 = self.acous_enc_l1(
-				acous_feats, acous_hidden_init) # b x acous_len x 2dim
-			acous_outputs_l1 = self.dropout(acous_outputs_l1)\
-				.reshape(batch_size, acous_len, acous_outputs_l1.size(-1))
-			if self.batch_norm:
-				acous_outputs_l1 = self.bn1(acous_outputs_l1.permute(0, 2, 1))\
-					.permute(0, 2, 1)
-			acous_inputs_l2 = acous_outputs_l1\
-				.reshape(batch_size, int(acous_len/2), 2*acous_outputs_l1.size(-1))
-				# b x acous_len/2 x 4dim
-			# layer2
-			acous_outputs_l2, acous_hidden_l2 = self.acous_enc_l2(
-				acous_inputs_l2, acous_hidden_init) # b x acous_len/2 x 2dim
-			acous_outputs_l2 = self.dropout(acous_outputs_l2)\
-				.reshape(batch_size, int(acous_len/2), acous_outputs_l2.size(-1))
-			if self.batch_norm:
-				acous_outputs_l2 = self.bn2(acous_outputs_l2.permute(0, 2, 1))\
-					.permute(0, 2, 1)
-			acous_inputs_l3 = acous_outputs_l2\
-				.reshape(batch_size, int(acous_len/4), 2*acous_outputs_l2.size(-1))
-				# b x acous_len/4 x 4dim
-			# layer3
-			acous_outputs_l3, acous_hidden_l3 = self.acous_enc_l3(
-				acous_inputs_l3, acous_hidden_init) # b x acous_len/4 x 2dim
-			acous_outputs_l3 = self.dropout(acous_outputs_l3)\
-				.reshape(batch_size, int(acous_len/4), acous_outputs_l3.size(-1))
-			if self.batch_norm:
-				acous_outputs_l3 = self.bn3(acous_outputs_l3.permute(0, 2, 1))\
-					.permute(0, 2, 1)
-			acous_inputs_l4 = acous_outputs_l3\
-				.reshape(batch_size, int(acous_len/8), 2*acous_outputs_l3.size(-1))
-				# b x acous_len/8 x 4dim
-			# layer4
-			acous_outputs_l4, acous_hidden_l4 = self.acous_enc_l4(
-				acous_inputs_l4, acous_hidden_init) # b x acous_len/8 x 2dim
-			acous_outputs_l4 = self.dropout(acous_outputs_l4)\
-				.reshape(batch_size, int(acous_len/8), acous_outputs_l4.size(-1))
-			if self.batch_norm:
-				acous_outputs_l4 = self.bn4(acous_outputs_l4.permute(0, 2, 1))\
-					.permute(0, 2, 1)
-			acous_outputs = acous_outputs_l4
+		# generate acous mask: True for trailing 0's
+		if type(acous_lens) != type(None):
+			# reduce by 8
+			lens = torch.cat([elem + 8 - elem % 8 for elem in acous_lens]) / 8
+			max_acous_len = acous_outputs.size(1)
+			# mask=True over trailing 0s
+			mask = torch.arange(max_acous_len).to(device=device).expand(
+				batch_size, max_acous_len) >= lens.unsqueeze(1).to(device=device)
+		else:
+			mask = None
 
-		elif self.enc_mode == 'cnn':
-			pass #todo
+		# 3. init hidden states
+		dec_hidden = None
 
-		# 3. ---- run dec + att + shared + output ----
+		# 4. run dec + att + shared + output
 		"""
 			teacher_forcing_ratio = 1.0 -> always teacher forcing
 			E.g.:
@@ -345,10 +202,9 @@ class LAS(nn.Module):
 				tgt_chunk in    = w1 w2 w3 </s> <pad> <pad> <pad>   [max_seq_len]
 				predicted       = w1 w2 w3 </s> <pad> <pad> <pad>   [max_seq_len]
 		"""
-		# import pdb; pdb.set_trace()
 
-		att_keys = acous_outputs
-		att_vals = acous_outputs
+		# LAS under teacher forcing
+		use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
 		# beam search decoding
 		if not is_training and beam_width > 1:
@@ -383,7 +239,9 @@ class LAS(nn.Module):
 
 		ret_dict[KEY_SEQUENCE] = sequence_symbols
 		ret_dict[KEY_LENGTH] = lengths.tolist()
+		ret_dict[KEY_ATTN_OUT] = attn_outputs
 
+		# import pdb; pdb.set_trace()
 
 		return decoder_outputs, dec_hidden, ret_dict
 

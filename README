@@ -1,5 +1,3 @@
 [active]
 
-use /encdec/acous-las-run-v3 to run
-
-(most recent update - add normalisation on loss)
+modified from acous-las-v3, modularise the trainer, models
